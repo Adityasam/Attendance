@@ -4,7 +4,7 @@
  */
 const ArchDB = (() => {
   const DB_NAME = 'arch_attendance';
-  const DB_VERSION = 3;
+  const DB_VERSION = 4;
   let _db = null;
 
   function openDB() {
@@ -31,6 +31,9 @@ const ArchDB = (() => {
         }
         if (!db.objectStoreNames.contains('faceModels')) {
           db.createObjectStore('faceModels', { keyPath: 'name' });
+        }
+        if (!db.objectStoreNames.contains('appSettings')) {
+          db.createObjectStore('appSettings', { keyPath: 'key' });
         }
       };
       req.onsuccess = (e) => { _db = e.target.result; resolve(_db); };
@@ -288,6 +291,16 @@ const ArchDB = (() => {
     return getAll('faceModels');
   }
 
+  // ── App Settings (offline cache) ────────────────────────────────────────────
+
+  async function cacheAppSettings(settings) {
+    return tx('appSettings', 'readwrite', s => s.put({ key: 'main', ...settings }));
+  }
+
+  async function getAppSettings() {
+    return tx('appSettings', 'readonly', s => s.get('main'));
+  }
+
   return {
     cacheEmployees, getEmployees, getEmployeesWithFaceData, mergeFaceData,
     putEmployee, removeEmployee,
@@ -295,6 +308,7 @@ const ArchDB = (() => {
     saveAttendance, getPendingAttendance, markAllSynced, cacheTodayAttendance, getTodayAttendance,
     savePendingOp, getPendingOps, deleteOp, removePendingOpsForTempId,
     getDashboardSummary,
-    cacheFaceModel, getAllFaceModels
+    cacheFaceModel, getAllFaceModels,
+    cacheAppSettings, getAppSettings
   };
 })();

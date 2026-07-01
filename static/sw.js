@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arch-v64';
+const CACHE_NAME = 'arch-v80';
 
 const PRECACHE = [
   '/static/css/style.css',

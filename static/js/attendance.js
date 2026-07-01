@@ -8,6 +8,7 @@ const AttendanceModule = (() => {
   const MATCH_THRESHOLD = 0.5;
   const SCAN_INTERVAL_MS = 1200;  // ms between recognition attempts
   const COOLDOWN_MS = 4000;       // ms before same face can be matched again
+  let _facingMode = 'user';
   const MODEL_FILES = [
     'tiny_face_detector_model-weights_manifest.json',
     'tiny_face_detector_model-shard1',
@@ -99,7 +100,7 @@ const AttendanceModule = (() => {
     _statusEl && (_statusEl.textContent = 'Starting camera…');
 
     _stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+      video: { facingMode: _facingMode, width: { ideal: 640 }, height: { ideal: 480 } }
     });
     _videoEl.srcObject = _stream;
     await new Promise(r => (_videoEl.onloadedmetadata = r));
@@ -185,5 +186,20 @@ const AttendanceModule = (() => {
     return detection ? detection.descriptor : null;
   }
 
-  return { loadModels, startCamera, stopCamera, getFaceDescriptor };
+  async function switchCamera() {
+    if (!_videoEl) return;
+    _facingMode = _facingMode === 'user' ? 'environment' : 'user';
+    if (_stream) {
+      _stream.getTracks().forEach(t => t.stop());
+    }
+    _stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: _facingMode, width: { ideal: 640 }, height: { ideal: 480 } }
+    });
+    _videoEl.srcObject = _stream;
+    await new Promise(r => (_videoEl.onloadedmetadata = r));
+    _videoEl.play();
+    _videoEl.style.transform = _facingMode === 'user' ? 'scaleX(-1)' : 'none';
+  }
+
+  return { loadModels, startCamera, stopCamera, switchCamera, getFaceDescriptor };
 })();

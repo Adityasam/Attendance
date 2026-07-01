@@ -43,8 +43,7 @@
 <!-- Filter Bar -->
 <div class="card mb-3">
   <div class="card-body py-2">
-    <!-- Desktop: all inline -->
-    <div class="d-none d-md-flex gap-2 align-items-center">
+    <div class="d-flex gap-2 align-items-center">
       <input type="search" class="form-control" id="empSearch"
              placeholder="Search employees…" oninput="filterGrid()" style="flex:1;min-width:0;">
       <select class="form-select" id="statusFilter" onchange="filterGrid()" style="width:auto;flex-shrink:0;">
@@ -53,32 +52,11 @@
         <option value="in">Signed In</option>
         <option value="out">Signed Out</option>
       </select>
-      <select class="form-select" id="projectSelect" style="width:auto;flex-shrink:0;">
-        <option value="">No Project</option>
-      </select>
-      <div class="ms-auto d-flex align-items-center gap-2">
-        <div class="gps-status" id="gpsStatus">
-          <i class="fa-solid fa-location-dot"></i>
-          <span id="gpsLabel">GPS…</span>
-        </div>
-        <span class="badge bg-primary-subtle text-muted small" id="summaryBadge"></span>
+      <div class="gps-status d-none d-md-flex" id="gpsStatus">
+        <i class="fa-solid fa-location-dot"></i>
+        <span id="gpsLabel">GPS…</span>
       </div>
-    </div>
-    <!-- Mobile: search row + filters row -->
-    <div class="d-md-none">
-      <input type="search" class="form-control mb-2" id="empSearchMobile"
-             placeholder="Search employees…" oninput="filterGrid()" style="width:100%;">
-      <div class="d-flex gap-2">
-        <select class="form-select" id="statusFilterMobile" onchange="filterGrid()" style="flex:1;min-width:0;">
-          <option value="">All</option>
-          <option value="absent">Absent</option>
-          <option value="in">Signed In</option>
-          <option value="out">Signed Out</option>
-        </select>
-        <select class="form-select" id="projectSelectMobile" style="flex:1;min-width:0;">
-          <option value="">No Project</option>
-        </select>
-      </div>
+      <span class="badge bg-primary-subtle text-muted small d-none d-md-inline" id="summaryBadge"></span>
     </div>
   </div>
 </div>
@@ -98,28 +76,43 @@
 <!-- ── Camera Modal ── -->
 <div class="modal fade" id="cameraModal" tabindex="-1" data-bs-backdrop="static">
   <div class="modal-dialog modal-fullscreen-md-down modal-lg">
-    <div class="modal-content" style="background:#0a0a0a !important; border-color:#222 !important;">
+    <div class="modal-content" style="background:#0a0a0a !important; border-color:#222 !important;border-radius:0px !important;">
       <div class="modal-header" style="background:#111 !important; border-color:#2a2a2a !important;">
         <h5 class="modal-title text-white">
-          <i class="fa-solid fa-camera me-2" style="color:#FAA83A;"></i>Face Recognition
+          <i class="fa-solid fa-camera me-2" style="color:#FAA83A;"></i>Face Scan
         </h5>
         <div class="ms-auto d-flex align-items-center gap-3">
           <span id="sessionCount" class="badge" style="background:#FAA83A;color:#fff;">0 scanned</span>
           <button class="btn btn-sm" style="background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.2);"
                   onclick="closeCamera()">
-            <i class="fa-solid fa-xmark me-1"></i>Close
+            <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
+      </div>
+      <div class="px-3 py-2" style="background:#111 !important; border-bottom:1px solid #2a2a2a;">
+        <select class="form-select" id="camProjectSelect" onchange="onCamProjectChange()" style="background:#1a1a1a;color:#fff;border-color:#333;">
+          <option value="">Select Project</option>
+        </select>
       </div>
       <div class="modal-body p-0 text-center" style="position:relative;background:#000;overflow:hidden;">
         <video id="attVideo" autoplay playsinline muted class="att-video"></video>
         <canvas id="attCanvas" class="att-canvas d-none d-md-block"></canvas>
+        <div id="camProjectOverlay" style="position:absolute;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:10;">
+          <div style="color:#888;text-align:center;">
+            <i class="fa-solid fa-diagram-project fa-3x mb-3" style="color:#FAA83A;"></i>
+            <div style="font-size:1.1rem;">Select a project to start scanning</div>
+          </div>
+        </div>
         <div id="attStatus" class="att-status-bar">
           <i class="fa-solid fa-circle-notch fa-spin"></i> Initializing…
         </div>
       </div>
-      <div class="modal-footer" style="background:#111 !important; border-color:#2a2a2a !important; justify-content:center;">
-        <span style="color:#888;font-size:.82rem;">Each camera session allows one scan per employee</span>
+      <div class="modal-footer d-flex justify-content-between align-items-center" style="background:#111 !important; border-color:#2a2a2a !important;">
+        <span style="color:#888;font-size:.82rem;">One scan per employee per session</span>
+        <button class="btn btn-sm" style="background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.2);"
+                onclick="AttendanceModule.switchCamera()">
+          <i class="fa-solid fa-camera-rotate"></i>
+        </button>
       </div>
     </div>
   </div>
@@ -141,6 +134,14 @@
       </div>
       <div class="modal-body p-0">
         <div id="histBody" style="padding:16px;"></div>
+      </div>
+      <div class="modal-footer d-none" id="histManualFooter" style="border-top:1px solid var(--border);">
+        <div class="d-flex align-items-center gap-2 w-100">
+          <select class="form-select" id="histProjectSelect" style="flex:1;min-width:0;">
+            <option value="">Select Project</option>
+          </select>
+          <button class="btn px-4 py-2" id="manualAttBtn" style="white-space:nowrap;"></button>
+        </div>
       </div>
     </div>
   </div>
@@ -231,6 +232,7 @@ let currentLat = null, currentLon = null;
 let projects   = [];
 let exportPeriod = 'today';
 let _locationMandatory = false;
+let _manualAttendance = false;
 
 const cameraModal     = new bootstrap.Modal(document.getElementById('cameraModal'));
 const empHistoryModal = new bootstrap.Modal(document.getElementById('empHistoryModal'));
@@ -248,30 +250,37 @@ const exportModal     = new bootstrap.Modal(document.getElementById('exportModal
   document.getElementById('exportYear').value  = now.getFullYear();
 
   try {
+    if (ArchDB.getAppSettings) {
+      const cached = await ArchDB.getAppSettings();
+      if (cached) {
+        _locationMandatory = !!cached.locationMandatory;
+        _manualAttendance = !!cached.manualAttendance;
+      }
+    }
+  } catch(_) {}
+
+  try {
     const sRes = await fetch('/api/settings/app');
     if (sRes.ok) {
       const s = await sRes.json();
       _locationMandatory = !!s.locationMandatory;
+      _manualAttendance = !!s.manualAttendance;
+      if (ArchDB.cacheAppSettings) ArchDB.cacheAppSettings(s);
     }
   } catch(_) {}
 
+  document.getElementById('gpsStatus').style.display = _locationMandatory ? '' : 'none';
+  document.querySelector('.fab-btn').style.display = _manualAttendance ? 'none' : '';
+
   await Promise.all([loadProjects(), loadEmployees()]);
   await loadTodayRecords();
-  requestLocation();
+  if (_locationMandatory) requestLocation();
   _syncFromServer();
 })();
 
 /* ── Data Loading ── */
 async function loadProjects() {
   try { projects = await ArchDB.getProjects(); } catch(_) { projects = []; }
-  _renderProjectOpts();
-}
-
-function _renderProjectOpts() {
-  const opts = projects.filter(p => p.Status === 'Active').map(p => `<option value="${p.id}">${p.Title}</option>`).join('');
-  const html = '<option value="">No Project</option>' + opts;
-  document.getElementById('projectSelect').innerHTML = html;
-  document.getElementById('projectSelectMobile').innerHTML = html;
 }
 
 async function loadEmployees() {
@@ -308,7 +317,6 @@ async function _syncFromServer() {
       if (Array.isArray(data)) {
         await ArchDB.cacheProjects(data);
         projects = await ArchDB.getProjects();
-        _renderProjectOpts();
       }
     }
   } catch(_) {}
@@ -353,9 +361,8 @@ function statusLabel(s) {
 }
 
 function renderGrid() {
-  const isMobile = window.innerWidth < 768;
-  const q  = document.getElementById(isMobile ? 'empSearchMobile' : 'empSearch').value.toLowerCase();
-  const sf = document.getElementById(isMobile ? 'statusFilterMobile' : 'statusFilter').value;
+  const q  = document.getElementById('empSearch').value.toLowerCase();
+  const sf = document.getElementById('statusFilter').value;
 
   const list = allEmployees.filter(emp => {
     const matchName = emp.FullName.toLowerCase().includes(q) || emp.EmployeeCode.toLowerCase().includes(q);
@@ -417,80 +424,204 @@ async function showEmpHistory(empCode) {
 
   const recs = todayRecords.filter(r => r.EmployeeCode === empCode)
                .sort((a,b) => (a.AttendanceDateTime || '').localeCompare(b.AttendanceDateTime || ''));
-  renderHistory(recs);
+  renderHistory(recs, empCode);
 }
 
-function renderHistory(recs) {
+function renderHistory(recs, empCode) {
   const body = document.getElementById('histBody');
+
+  let entriesHtml = '';
   if (!recs.length) {
-    body.innerHTML = `<div class="text-center py-4 text-muted">
+    entriesHtml = `<div class="text-center py-4 text-muted">
       <i class="fa-solid fa-calendar-xmark fa-2x mb-2 d-block" style="color:var(--brand-light-3);"></i>
       No scans today</div>`;
-    return;
+  } else {
+    const entries = recs.map((r, i) => {
+      const type  = i % 2 === 0 ? 'in' : 'out';
+      const label = type === 'in' ? 'Sign In' : 'Sign Out';
+      const icon  = type === 'in' ? 'fa-right-to-bracket' : 'fa-right-from-bracket';
+      const time  = r.AttendanceDateTime ? r.AttendanceDateTime.slice(11, 16) : '—';
+      const hasGPS = r.Latitude && r.Longitude;
+      const projTitle = r.ProjectTitle
+        || (r.ProjectId && projects.find(p => p.id == r.ProjectId)?.Title)
+        || null;
+      return `
+      <div class="scan-entry">
+        <div class="scan-dot scan-dot--${type}"><i class="fa-solid ${icon}"></i></div>
+        <div class="scan-body">
+          <div class="scan-time">${time}</div>
+          <div class="scan-label scan-label--${type}">${label}</div>
+          ${projTitle
+            ? `<div class="scan-project"><i class="fa-solid fa-diagram-project"></i>${projTitle}</div>`
+            : ''}
+          ${hasGPS
+            ? `<a class="scan-gps" href="#" onclick="event.preventDefault();showLocationMap(${+r.Latitude},${+r.Longitude},${r.ProjectId ? "'"+r.ProjectId+"'" : 'null'})">
+                 <i class="fa-solid fa-location-dot"></i>${(+r.Latitude).toFixed(5)}, ${(+r.Longitude).toFixed(5)}
+               </a>`
+            : `<span class="scan-gps-none"><i class="fa-solid fa-location-dot-slash"></i>No GPS</span>`}
+        </div>
+      </div>`;
+    }).join('');
+
+    entriesHtml = `
+      <div class="scan-timeline">${entries}</div>
+      <div class="text-center text-muted small py-2" style="border-top:1px solid var(--border);">
+        ${recs.length} scan${recs.length !== 1 ? 's' : ''} today
+      </div>`;
   }
 
-  const entries = recs.map((r, i) => {
-    const type  = i % 2 === 0 ? 'in' : 'out';
-    const label = type === 'in' ? 'Sign In' : 'Sign Out';
-    const icon  = type === 'in' ? 'fa-right-to-bracket' : 'fa-right-from-bracket';
-    const time  = r.AttendanceDateTime ? r.AttendanceDateTime.slice(11, 16) : '—';
-    const hasGPS = r.Latitude && r.Longitude;
-    const projTitle = r.ProjectTitle
-      || (r.ProjectId && projects.find(p => p.id == r.ProjectId)?.Title)
-      || null;
-    return `
-    <div class="scan-entry">
-      <div class="scan-dot scan-dot--${type}"><i class="fa-solid ${icon}"></i></div>
-      <div class="scan-body">
-        <div class="scan-time">${time}</div>
-        <div class="scan-label scan-label--${type}">${label}</div>
-        ${projTitle
-          ? `<div class="scan-project"><i class="fa-solid fa-diagram-project"></i>${projTitle}</div>`
-          : ''}
-        ${hasGPS
-          ? `<a class="scan-gps" href="#" onclick="event.preventDefault();showLocationMap(${+r.Latitude},${+r.Longitude},${r.ProjectId ? "'"+r.ProjectId+"'" : 'null'})">
-               <i class="fa-solid fa-location-dot"></i>${(+r.Latitude).toFixed(5)}, ${(+r.Longitude).toFixed(5)}
-             </a>`
-          : `<span class="scan-gps-none"><i class="fa-solid fa-location-dot-slash"></i>No GPS</span>`}
-      </div>
-    </div>`;
-  }).join('');
+  body.innerHTML = entriesHtml;
 
-  body.innerHTML = `
-    <div class="scan-timeline">${entries}</div>
-    <div class="text-center text-muted small py-2" style="border-top:1px solid var(--border);">
-      ${recs.length} scan${recs.length !== 1 ? 's' : ''} today
-    </div>`;
+  const footer = document.getElementById('histManualFooter');
+  if (_manualAttendance && empCode) {
+    footer.classList.remove('d-none');
+    const st = getStatus(empCode);
+    const isIn = st === 'in';
+
+    const sel = document.getElementById('histProjectSelect');
+    const opts = projects.filter(p => p.Status === 'Active').map(p => `<option value="${p.id}">${p.Title}</option>`).join('');
+    sel.innerHTML = '<option value="">Select Project</option>' + opts;
+
+    const btn = document.getElementById('manualAttBtn');
+    btn.disabled = false;
+    btn.onclick = () => markManualAttendance(empCode);
+
+    if (isIn) {
+      const empProj = projectScans[empCode] || {};
+      const activePid = Object.entries(empProj).find(([, cnt]) => cnt % 2 === 1)?.[0] || '';
+      sel.value = activePid;
+      sel.disabled = true;
+      btn.className = 'btn btn-danger px-4 py-2';
+      btn.style.whiteSpace = 'nowrap';
+      btn.innerHTML = '<i class="fa-solid fa-right-from-bracket me-1"></i>Sign Out';
+    } else {
+      sel.value = '';
+      sel.disabled = false;
+      btn.className = 'btn btn-success px-4 py-2';
+      btn.style.whiteSpace = 'nowrap';
+      btn.innerHTML = '<i class="fa-solid fa-right-to-bracket me-1"></i>Sign In';
+    }
+  } else {
+    footer.classList.add('d-none');
+  }
 }
 
-// Sync desktop ↔ mobile project select
-document.getElementById('projectSelect').addEventListener('change', function() {
-  document.getElementById('projectSelectMobile').value = this.value;
-});
-document.getElementById('projectSelectMobile').addEventListener('change', function() {
-  document.getElementById('projectSelect').value = this.value;
-});
 
-function getSelectedProject() {
-  return document.getElementById('projectSelect').value || document.getElementById('projectSelectMobile').value;
+/* ── Manual Attendance ── */
+async function markManualAttendance(empCode) {
+  const btn = document.getElementById('manualAttBtn');
+  btn.disabled = true;
+
+  const st = getStatus(empCode);
+  const attType = st === 'in' ? 'Out' : 'In';
+  let projectId;
+
+  const histSel = document.getElementById('histProjectSelect');
+
+  if (attType === 'Out') {
+    projectId = histSel.value;
+  } else {
+    projectId = histSel.value;
+    if (!projectId) {
+      showToast('Please select a project first', 'warning');
+      btn.disabled = false;
+      return;
+    }
+    const empProj = projectScans[empCode] || {};
+    for (const [pid, cnt] of Object.entries(empProj)) {
+      if (cnt % 2 === 1 && pid !== projectId) {
+        const pName = projects.find(p => String(p.id) === pid)?.Title || pid;
+        showToast(`Already signed in to "${pName}". Sign out first.`, 'warning', 5000);
+        btn.disabled = false;
+        return;
+      }
+    }
+  }
+
+  const payload = {
+    EmployeeCode: empCode,
+    Type: attType,
+    ProjectId: projectId,
+    Latitude: currentLat,
+    Longitude: currentLon
+  };
+
+  try {
+    const res = await fetch('/api/attendance/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      showToast(err.error || 'Failed to mark attendance', 'danger');
+      btn.disabled = false;
+      return;
+    }
+    const result = await res.json();
+    showToast(`${result.employee} — Sign ${attType}`, 'success');
+
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const localDT = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    const rec = {
+      EmployeeCode: empCode,
+      AttendanceDateTime: localDT,
+      Latitude: currentLat,
+      Longitude: currentLon,
+      Type: attType,
+      ProjectId: projectId,
+      ProjectTitle: projects.find(p => String(p.id) === String(projectId))?.Title || '',
+      status: 'synced'
+    };
+    todayRecords.push(rec);
+    _processScanCounts();
+    renderGrid();
+    updateSummaryBadge();
+
+    const recs = todayRecords.filter(r => r.EmployeeCode === empCode)
+                 .sort((a,b) => (a.AttendanceDateTime || '').localeCompare(b.AttendanceDateTime || ''));
+    renderHistory(recs, empCode);
+  } catch(e) {
+    showToast('Network error', 'danger');
+    btn.disabled = false;
+  }
 }
 
 /* ── Camera ── */
-async function openCamera() {
-  if (!getSelectedProject()) {
-    showToast('Please select a project first', 'warning');
-    return;
+function _getCamProject() {
+  return document.getElementById('camProjectSelect').value;
+}
+
+function onCamProjectChange() {
+  const overlay = document.getElementById('camProjectOverlay');
+  if (_getCamProject()) {
+    overlay.classList.add('d-none');
+  } else {
+    overlay.classList.remove('d-none');
   }
+}
+
+async function openCamera() {
+  const camSel = document.getElementById('camProjectSelect');
+  const opts = projects.filter(p => p.Status === 'Active').map(p => `<option value="${p.id}">${p.Title}</option>`).join('');
+  camSel.innerHTML = '<option value="">Select Project</option>' + opts;
+  camSel.value = '';
+  document.getElementById('camProjectOverlay').classList.remove('d-none');
+
   if (_locationMandatory) {
     const locState = await navigator.permissions.query({ name: 'geolocation' }).then(p => p.state).catch(() => 'denied');
     if (locState === 'denied') {
-      showToast('Location permission is mandatory. Please allow location access first.', 'danger', 5000);
+      showToast('Location permission is mandatory. Please enable it in browser settings.', 'danger', 5000);
       return;
     }
     if (locState === 'prompt') {
-      showToast('Location permission is mandatory. Please allow location access first.', 'danger', 5000);
-      requestLocation();
-      return;
+      const allowed = await askPermission('location');
+      if (!allowed) {
+        showToast('Location permission is mandatory. You cannot mark attendance without it.', 'danger', 5000);
+        return;
+      }
+      startGPS();
     }
   }
 
@@ -530,7 +661,12 @@ async function onFaceMatched(emp) {
   }
   sessionScanned.add(emp.EmployeeCode);
 
-  const projectId = getSelectedProject() || null;
+  const projectId = _getCamProject() || null;
+  if (!projectId) {
+    document.getElementById('attStatus').textContent = 'Select a project first';
+    sessionScanned.delete(emp.EmployeeCode);
+    return;
+  }
   const pid = String(projectId || '');
   const empProj = projectScans[emp.EmployeeCode] || {};
   const projCount = empProj[pid] || 0;

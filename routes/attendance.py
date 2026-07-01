@@ -304,7 +304,7 @@ def export_xlsx():
                 cell = ws.cell(row=row_num, column=col_idx)
                 if d in r.get('flagged_days', set()):
                     cell.fill = red_fill
-                elif cell.value == '00:00':
+                elif cell.value == '0':
                     cell.font = faded_font
     else:
         summary = _build_export_summary(date_filter, month, year, project_id)
@@ -409,7 +409,7 @@ def export_pdf():
                 d = col_idx - 3
                 if d in flagged:
                     style_cmds.append(('BACKGROUND', (col_idx, row_idx), (col_idx, row_idx), red_bg))
-                elif row[col_idx] == '00:00':
+                elif row[col_idx] == '0':
                     style_cmds.append(('TEXTCOLOR', (col_idx, row_idx), (col_idx, row_idx), faded))
     else:
         for row_idx, r in enumerate(summary, 1):
@@ -532,7 +532,7 @@ def _build_monthly_summary(month, year, project_id):
             records = by_emp_day.get((code, d), [])
             records.sort(key=lambda r: r.get('AttendanceDateTime', ''))
             secs = _calc_hours(records)
-            row['days'][d] = _fmt_hours(secs) if secs > 0 else '00:00'
+            row['days'][d] = _fmt_hours(secs) if secs > 0 else '0'
             if any(_is_out_of_range(rec, proj_locs) for rec in records):
                 row['flagged_days'].add(d)
         summary.append(row)
