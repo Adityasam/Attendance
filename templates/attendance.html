@@ -1,0 +1,752 @@
+{% extends "base.html" %}
+{% block title %}Attendance{% endblock %}
+{% block page_title %}Attendance{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+<style>
+  #attMapContainer { height: 400px; width: 100%; border-radius: 0 0 8px 8px; }
+  .att-map-coords-label { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+    z-index: 1000; background: rgba(26,60,94,.9); color: #fff; padding: 4px 14px;
+    border-radius: 6px; font-size: .82rem; pointer-events: none; }
+  .att-video { width: 100%; max-height: 68vh; object-fit: cover; display: block; transform: scaleX(-1); }
+  .att-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+  @media (max-width: 767.98px) {
+    .att-video { max-height: 100vh; height: 100vh; }
+  }
+</style>
+{% endblock %}
+
+{% block topbar_right %}
+<button class="btn btn-outline-primary btn-sm" onclick="openExportModal()" style="position:absolute;right:16px;z-index:1;">
+  <i class="fa-solid fa-file-export"></i>
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2 class="page-title"><i class="fa-solid fa-calendar-check me-2"></i>Attendance</h2>
+    <div class="text-muted small mt-1" id="todayLabel" style="display:block;"></div>
+  </div>
+  <button class="btn btn-outline-primary btn-sm" onclick="openExportModal()">
+    <i class="fa-solid fa-file-export me-1"></i>Export
+  </button>
+</div>
+
+<!-- Mobile date + present count -->
+<div class="d-md-none d-flex align-items-center justify-content-between mb-2">
+  <div class="text-muted small" id="todayLabelMobile"></div>
+  <span class="badge bg-primary-subtle text-muted small" id="summaryBadgeMobile"></span>
+</div>
+
+<!-- Filter Bar -->
+<div class="card mb-3">
+  <div class="card-body py-2">
+    <!-- Desktop: all inline -->
+    <div class="d-none d-md-flex gap-2 align-items-center">
+      <input type="search" class="form-control" id="empSearch"
+             placeholder="Search employees…" oninput="filterGrid()" style="flex:1;min-width:0;">
+      <select class="form-select" id="statusFilter" onchange="filterGrid()" style="width:auto;flex-shrink:0;">
+        <option value="">All</option>
+        <option value="absent">Absent</option>
+        <option value="in">Signed In</option>
+        <option value="out">Signed Out</option>
+      </select>
+      <select class="form-select" id="projectSelect" style="width:auto;flex-shrink:0;">
+        <option value="">No Project</option>
+      </select>
+      <div class="ms-auto d-flex align-items-center gap-2">
+        <div class="gps-status" id="gpsStatus">
+          <i class="fa-solid fa-location-dot"></i>
+          <span id="gpsLabel">GPS…</span>
+        </div>
+        <span class="badge bg-primary-subtle text-muted small" id="summaryBadge"></span>
+      </div>
+    </div>
+    <!-- Mobile: search row + filters row -->
+    <div class="d-md-none">
+      <input type="search" class="form-control mb-2" id="empSearchMobile"
+             placeholder="Search employees…" oninput="filterGrid()" style="width:100%;">
+      <div class="d-flex gap-2">
+        <select class="form-select" id="statusFilterMobile" onchange="filterGrid()" style="flex:1;min-width:0;">
+          <option value="">All</option>
+          <option value="absent">Absent</option>
+          <option value="in">Signed In</option>
+          <option value="out">Signed Out</option>
+        </select>
+        <select class="form-select" id="projectSelectMobile" style="flex:1;min-width:0;">
+          <option value="">No Project</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Employee Grid -->
+<div class="att-grid" id="attGrid">
+  <div class="text-center py-5 text-muted" style="grid-column:1/-1">
+    <div class="spinner-border spinner-border-sm me-2"></div>Loading employees…
+  </div>
+</div>
+
+<!-- FAB Camera -->
+<button class="fab-btn" onclick="openCamera()">
+  <i class="fa-solid fa-camera fa-lg"></i>
+</button>
+
+<!-- ── Camera Modal ── -->
+<div class="modal fade" id="cameraModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-fullscreen-md-down modal-lg">
+    <div class="modal-content" style="background:#0a0a0a !important; border-color:#222 !important;">
+      <div class="modal-header" style="background:#111 !important; border-color:#2a2a2a !important;">
+        <h5 class="modal-title text-white">
+          <i class="fa-solid fa-camera me-2" style="color:#FAA83A;"></i>Face Recognition
+        </h5>
+        <div class="ms-auto d-flex align-items-center gap-3">
+          <span id="sessionCount" class="badge" style="background:#FAA83A;color:#fff;">0 scanned</span>
+          <button class="btn btn-sm" style="background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.2);"
+                  onclick="closeCamera()">
+            <i class="fa-solid fa-xmark me-1"></i>Close
+          </button>
+        </div>
+      </div>
+      <div class="modal-body p-0 text-center" style="position:relative;background:#000;overflow:hidden;">
+        <video id="attVideo" autoplay playsinline muted class="att-video"></video>
+        <canvas id="attCanvas" class="att-canvas d-none d-md-block"></canvas>
+        <div id="attStatus" class="att-status-bar">
+          <i class="fa-solid fa-circle-notch fa-spin"></i> Initializing…
+        </div>
+      </div>
+      <div class="modal-footer" style="background:#111 !important; border-color:#2a2a2a !important; justify-content:center;">
+        <span style="color:#888;font-size:.82rem;">Each camera session allows one scan per employee</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Employee Scan History Modal ── -->
+<div class="modal fade" id="empHistoryModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="d-flex align-items-center gap-3">
+          <div id="histAvatarWrap"></div>
+          <div>
+            <h5 class="modal-title mb-0" id="histEmpName"></h5>
+            <small class="text-muted" id="histEmpMeta"></small>
+          </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div id="histBody" style="padding:16px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Export Modal ── -->
+<div class="modal fade" id="exportModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fa-solid fa-file-export me-2" style="color:var(--brand);"></i>Export Attendance</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+
+        <!-- Period -->
+        <div class="mb-4">
+          <div class="form-label fw-semibold mb-2">Period</div>
+          <div class="d-flex gap-2 mb-2 flex-wrap">
+            <button class="btn btn-sm export-period-btn active" onclick="setPeriod('today',this)">Today</button>
+            <button class="btn btn-sm export-period-btn" onclick="setPeriod('date',this)">Specific Date</button>
+            <button class="btn btn-sm export-period-btn" onclick="setPeriod('month',this)">Month</button>
+          </div>
+          <div id="exportDateWrap" style="display:none;">
+            <input type="date" class="form-control" id="exportDate">
+          </div>
+          <div id="exportMonthWrap" style="display:none;" class="gap-2">
+            <select class="form-select" id="exportMonth">
+              <option value="01">January</option><option value="02">February</option>
+              <option value="03">March</option><option value="04">April</option>
+              <option value="05">May</option><option value="06">June</option>
+              <option value="07">July</option><option value="08">August</option>
+              <option value="09">September</option><option value="10">October</option>
+              <option value="11">November</option><option value="12">December</option>
+            </select>
+            <input type="number" class="form-control" id="exportYear" style="max-width:110px;" min="2020" max="2035">
+          </div>
+        </div>
+
+        <!-- Format -->
+        <div>
+          <div class="form-label fw-semibold">Format</div>
+          <div class="d-flex gap-3">
+            <button class="btn btn-outline-success flex-fill py-3" onclick="doExport('xlsx')">
+              <i class="fa-solid fa-file-excel fa-xl me-2"></i>Excel (.xlsx)
+            </button>
+            <button class="btn btn-outline-danger flex-fill py-3" onclick="doExport('pdf')">
+              <i class="fa-solid fa-file-pdf fa-xl me-2"></i>PDF
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+<!-- ── Location Map Modal ── -->
+<div class="modal fade" id="locationMapModal" tabindex="-1" style="z-index:1070;">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fa-solid fa-map-location-dot me-2" style="color:var(--brand);"></i>Scan Location</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0" style="position:relative;">
+        <div id="attMapContainer"></div>
+        <div class="att-map-coords-label" id="attMapCoordsLabel"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="/static/js/attendance.js"></script>
+<script>
+const today = new Date().toLocaleDateString('en-CA');
+const now   = new Date();
+
+let allEmployees  = [];
+let todayRecords  = [];   // all server records for today
+let scanCounts    = {};   // empCode → # of scans today
+let projectScans  = {};   // empCode → { projectId → count }
+let sessionScanned = new Set(); // reset each camera open
+let currentLat = null, currentLon = null;
+let projects   = [];
+let exportPeriod = 'today';
+let _locationMandatory = false;
+
+const cameraModal     = new bootstrap.Modal(document.getElementById('cameraModal'));
+const empHistoryModal = new bootstrap.Modal(document.getElementById('empHistoryModal'));
+const exportModal     = new bootstrap.Modal(document.getElementById('exportModal'));
+
+/* ── Init ── */
+(async function init() {
+  const dateStr = now.toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  document.getElementById('todayLabel').textContent = dateStr;
+  const tlm = document.getElementById('todayLabelMobile');
+  if (tlm) tlm.textContent = dateStr;
+
+  document.getElementById('exportDate').value  = today;
+  document.getElementById('exportMonth').value = String(now.getMonth()+1).padStart(2,'0');
+  document.getElementById('exportYear').value  = now.getFullYear();
+
+  try {
+    const sRes = await fetch('/api/settings/app');
+    if (sRes.ok) {
+      const s = await sRes.json();
+      _locationMandatory = !!s.locationMandatory;
+    }
+  } catch(_) {}
+
+  await Promise.all([loadProjects(), loadEmployees()]);
+  await loadTodayRecords();
+  requestLocation();
+  _syncFromServer();
+})();
+
+/* ── Data Loading ── */
+async function loadProjects() {
+  try { projects = await ArchDB.getProjects(); } catch(_) { projects = []; }
+  _renderProjectOpts();
+}
+
+function _renderProjectOpts() {
+  const opts = projects.filter(p => p.Status === 'Active').map(p => `<option value="${p.id}">${p.Title}</option>`).join('');
+  const html = '<option value="">No Project</option>' + opts;
+  document.getElementById('projectSelect').innerHTML = html;
+  document.getElementById('projectSelectMobile').innerHTML = html;
+}
+
+async function loadEmployees() {
+  try {
+    allEmployees = (await ArchDB.getEmployees()).filter(e => e.Active);
+  } catch(_) { allEmployees = []; }
+}
+
+async function loadTodayRecords() {
+  try { todayRecords = await ArchDB.getTodayAttendance(); } catch(_) { todayRecords = []; }
+  _processScanCounts();
+  renderGrid();
+  updateSummaryBadge();
+}
+
+function _processScanCounts() {
+  scanCounts = {};
+  projectScans = {};
+  todayRecords.forEach(r => {
+    scanCounts[r.EmployeeCode] = (scanCounts[r.EmployeeCode] || 0) + 1;
+    const code = r.EmployeeCode;
+    const pid = String(r.ProjectId || '');
+    if (!projectScans[code]) projectScans[code] = {};
+    projectScans[code][pid] = (projectScans[code][pid] || 0) + 1;
+  });
+}
+
+async function _syncFromServer() {
+  let gridDirty = false;
+  try {
+    const res = await fetch('/api/projects/');
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        await ArchDB.cacheProjects(data);
+        projects = await ArchDB.getProjects();
+        _renderProjectOpts();
+      }
+    }
+  } catch(_) {}
+  try {
+    const res = await fetch('/api/employees/');
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        await ArchDB.cacheEmployees(data);
+        allEmployees = (await ArchDB.getEmployees()).filter(e => e.Active);
+        gridDirty = true;
+      }
+    }
+  } catch(_) {}
+  try {
+    const res = await fetch(`/api/attendance/?date=${today}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        await ArchDB.cacheTodayAttendance(data);
+        todayRecords = await ArchDB.getTodayAttendance();
+        gridDirty = true;
+      }
+    }
+  } catch(_) {}
+  if (gridDirty) {
+    _processScanCounts();
+    renderGrid();
+    updateSummaryBadge();
+  }
+}
+
+/* ── Grid ── */
+function getStatus(empCode) {
+  const n = scanCounts[empCode] || 0;
+  if (n === 0) return 'absent';
+  return n % 2 === 0 ? 'out' : 'in';
+}
+
+function statusLabel(s) {
+  return { absent: 'Absent', in: 'Signed In', out: 'Signed Out' }[s];
+}
+
+function renderGrid() {
+  const isMobile = window.innerWidth < 768;
+  const q  = document.getElementById(isMobile ? 'empSearchMobile' : 'empSearch').value.toLowerCase();
+  const sf = document.getElementById(isMobile ? 'statusFilterMobile' : 'statusFilter').value;
+
+  const list = allEmployees.filter(emp => {
+    const matchName = emp.FullName.toLowerCase().includes(q) || emp.EmployeeCode.toLowerCase().includes(q);
+    const matchSt   = !sf || getStatus(emp.EmployeeCode) === sf;
+    return matchName && matchSt;
+  });
+
+  const grid = document.getElementById('attGrid');
+  if (!list.length) {
+    grid.innerHTML = `<div class="text-center py-5 text-muted" style="grid-column:1/-1">
+      <i class="fa-solid fa-users-slash fa-2x mb-3 d-block" style="color:var(--brand-light-3);"></i>
+      No employees found</div>`;
+    return;
+  }
+
+  grid.innerHTML = list.map((emp, idx) => {
+    const st = getStatus(emp.EmployeeCode);
+    const avatar = emp.Picture
+      ? `<img src="${emp.Picture}" class="att-card-avatar" alt="" onerror="imgFallback(this,'${initials(emp.FullName)}')">`
+      : `<div class="att-card-avatar att-card-avatar--initials">${initials(emp.FullName)}</div>`;
+    return `
+    <div class="att-card" data-code="${emp.EmployeeCode}"
+         onclick="showEmpHistory('${emp.EmployeeCode}')"
+         style="animation:fadeUp .4s ease ${idx*25}ms both">
+      <div class="att-card-strip att-card-strip--${st}"></div>
+      ${avatar}
+      <div class="att-card-info">
+        <div class="att-card-name">${emp.FullName}</div>
+        <div class="att-card-code">${emp.EmployeeCode}</div>
+        ${emp.Designation ? `<div class="att-card-desig">${emp.Designation}</div>` : ''}
+      </div>
+      <span class="att-card-badge att-badge--${st}">${statusLabel(st)}</span>
+    </div>`;
+  }).join('');
+}
+function filterGrid() { renderGrid(); updateSummaryBadge(); }
+
+function updateSummaryBadge() {
+  const present = allEmployees.filter(e => getStatus(e.EmployeeCode) !== 'absent').length;
+  const text = `${present} / ${allEmployees.length} present`;
+  document.getElementById('summaryBadge').textContent = text;
+  const mb = document.getElementById('summaryBadgeMobile');
+  if (mb) mb.textContent = text;
+}
+
+/* ── Employee History Modal ── */
+async function showEmpHistory(empCode) {
+  const emp = allEmployees.find(e => e.EmployeeCode === empCode);
+  if (!emp) return;
+
+  document.getElementById('histAvatarWrap').innerHTML = emp.Picture
+    ? `<img src="${emp.Picture}" class="emp-avatar" alt="" onerror="imgFallback(this,'${initials(emp.FullName)}')">`
+    : `<div class="emp-avatar emp-avatar--initials">${initials(emp.FullName)}</div>`;
+  document.getElementById('histEmpName').textContent = emp.FullName;
+  document.getElementById('histEmpMeta').textContent =
+    [emp.EmployeeCode, emp.Designation].filter(Boolean).join(' · ');
+
+  openModal(empHistoryModal);
+
+  const recs = todayRecords.filter(r => r.EmployeeCode === empCode)
+               .sort((a,b) => (a.AttendanceDateTime || '').localeCompare(b.AttendanceDateTime || ''));
+  renderHistory(recs);
+}
+
+function renderHistory(recs) {
+  const body = document.getElementById('histBody');
+  if (!recs.length) {
+    body.innerHTML = `<div class="text-center py-4 text-muted">
+      <i class="fa-solid fa-calendar-xmark fa-2x mb-2 d-block" style="color:var(--brand-light-3);"></i>
+      No scans today</div>`;
+    return;
+  }
+
+  const entries = recs.map((r, i) => {
+    const type  = i % 2 === 0 ? 'in' : 'out';
+    const label = type === 'in' ? 'Sign In' : 'Sign Out';
+    const icon  = type === 'in' ? 'fa-right-to-bracket' : 'fa-right-from-bracket';
+    const time  = r.AttendanceDateTime ? r.AttendanceDateTime.slice(11, 16) : '—';
+    const hasGPS = r.Latitude && r.Longitude;
+    const projTitle = r.ProjectTitle
+      || (r.ProjectId && projects.find(p => p.id == r.ProjectId)?.Title)
+      || null;
+    return `
+    <div class="scan-entry">
+      <div class="scan-dot scan-dot--${type}"><i class="fa-solid ${icon}"></i></div>
+      <div class="scan-body">
+        <div class="scan-time">${time}</div>
+        <div class="scan-label scan-label--${type}">${label}</div>
+        ${projTitle
+          ? `<div class="scan-project"><i class="fa-solid fa-diagram-project"></i>${projTitle}</div>`
+          : ''}
+        ${hasGPS
+          ? `<a class="scan-gps" href="#" onclick="event.preventDefault();showLocationMap(${+r.Latitude},${+r.Longitude},${r.ProjectId ? "'"+r.ProjectId+"'" : 'null'})">
+               <i class="fa-solid fa-location-dot"></i>${(+r.Latitude).toFixed(5)}, ${(+r.Longitude).toFixed(5)}
+             </a>`
+          : `<span class="scan-gps-none"><i class="fa-solid fa-location-dot-slash"></i>No GPS</span>`}
+      </div>
+    </div>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="scan-timeline">${entries}</div>
+    <div class="text-center text-muted small py-2" style="border-top:1px solid var(--border);">
+      ${recs.length} scan${recs.length !== 1 ? 's' : ''} today
+    </div>`;
+}
+
+// Sync desktop ↔ mobile project select
+document.getElementById('projectSelect').addEventListener('change', function() {
+  document.getElementById('projectSelectMobile').value = this.value;
+});
+document.getElementById('projectSelectMobile').addEventListener('change', function() {
+  document.getElementById('projectSelect').value = this.value;
+});
+
+function getSelectedProject() {
+  return document.getElementById('projectSelect').value || document.getElementById('projectSelectMobile').value;
+}
+
+/* ── Camera ── */
+async function openCamera() {
+  if (!getSelectedProject()) {
+    showToast('Please select a project first', 'warning');
+    return;
+  }
+  if (_locationMandatory) {
+    const locState = await navigator.permissions.query({ name: 'geolocation' }).then(p => p.state).catch(() => 'denied');
+    if (locState === 'denied') {
+      showToast('Location permission is mandatory. Please allow location access first.', 'danger', 5000);
+      return;
+    }
+    if (locState === 'prompt') {
+      showToast('Location permission is mandatory. Please allow location access first.', 'danger', 5000);
+      requestLocation();
+      return;
+    }
+  }
+
+  const camState = await navigator.permissions.query({ name: 'camera' }).then(p => p.state).catch(() => 'prompt');
+  if (camState === 'prompt') {
+    const allowed = await askPermission('camera');
+    if (!allowed) {
+      showToast('Camera permission is required to scan faces.', 'warning', 4000);
+      return;
+    }
+  } else if (camState === 'denied') {
+    showToast('Camera permission was denied. Please enable it in browser settings.', 'danger', 5000);
+    return;
+  }
+
+  sessionScanned = new Set();
+  document.getElementById('sessionCount').textContent = '0 scanned';
+  try {
+    await AttendanceModule.loadModels();
+    await AttendanceModule.startCamera(
+      document.getElementById('attVideo'),
+      document.getElementById('attCanvas'),
+      document.getElementById('attStatus'),
+      onFaceMatched
+    );
+    openModal(cameraModal);
+  } catch(e) {
+    showToast('Camera error: ' + e.message, 'danger');
+  }
+}
+
+async function onFaceMatched(emp) {
+  if (sessionScanned.has(emp.EmployeeCode)) {
+    document.getElementById('attStatus').textContent =
+      `${emp.FullName} — already scanned this session`;
+    return;
+  }
+  sessionScanned.add(emp.EmployeeCode);
+
+  const projectId = getSelectedProject() || null;
+  const pid = String(projectId || '');
+  const empProj = projectScans[emp.EmployeeCode] || {};
+  const projCount = empProj[pid] || 0;
+
+  const type   = projCount % 2 === 0 ? 'In' : 'Out';
+  const action = type === 'In' ? 'Signed In' : 'Signed Out';
+  const n = new Date();
+
+  // If signing in, auto sign-out from any other project with an open session
+  if (type === 'In') {
+    let autoOffset = 0;
+    for (const [otherPid, cnt] of Object.entries(empProj)) {
+      if (otherPid !== pid && cnt % 2 === 1) {
+        autoOffset++;
+        const autoTime = new Date(n.getTime() - autoOffset * 1000);
+        const autoRec = {
+          EmployeeCode: emp.EmployeeCode,
+          FullName: emp.FullName,
+          Picture: emp.Picture || null,
+          AttendanceDateTime: formatDt(autoTime),
+          Latitude: currentLat,
+          Longitude: currentLon,
+          Type: 'Out',
+          ProjectId: otherPid,
+          status: 'pending'
+        };
+        await ArchDB.saveAttendance(autoRec);
+        todayRecords.push(autoRec);
+        scanCounts[emp.EmployeeCode] = (scanCounts[emp.EmployeeCode] || 0) + 1;
+        if (!projectScans[emp.EmployeeCode]) projectScans[emp.EmployeeCode] = {};
+        projectScans[emp.EmployeeCode][otherPid] = cnt + 1;
+
+        const oldProj = projects.find(p => String(p.id) === otherPid);
+        showToast(`${emp.FullName} — Auto signed out from ${oldProj?.Title || 'previous project'}`, 'info');
+      }
+    }
+  }
+
+  const dt = formatDt(n);
+  const record = {
+    EmployeeCode: emp.EmployeeCode,
+    FullName: emp.FullName,
+    Picture: emp.Picture || null,
+    AttendanceDateTime: dt,
+    Latitude: currentLat,
+    Longitude: currentLon,
+    Type: type,
+    ProjectId: projectId,
+    status: 'pending'
+  };
+
+  await ArchDB.saveAttendance(record);
+  todayRecords.push(record);
+  scanCounts[emp.EmployeeCode] = (scanCounts[emp.EmployeeCode] || 0) + 1;
+  if (!projectScans[emp.EmployeeCode]) projectScans[emp.EmployeeCode] = {};
+  projectScans[emp.EmployeeCode][pid] = (projectScans[emp.EmployeeCode][pid] || 0) + 1;
+
+  document.getElementById('attStatus').textContent = `✓ ${emp.FullName} — ${action}`;
+  document.getElementById('sessionCount').textContent = `${sessionScanned.size} scanned`;
+  showToast(`${emp.FullName} — ${action}`, type === 'In' ? 'success' : 'warning');
+
+  renderGrid();
+  updateSummaryBadge();
+
+  if (navigator.onLine) syncNow();
+}
+
+function closeCamera() {
+  AttendanceModule.stopCamera();
+  cameraModal.hide();
+  loadTodayRecords();
+  if (navigator.onLine) _syncFromServer();
+}
+
+async function syncNow() {
+  const pending = await ArchDB.getPendingAttendance();
+  if (!pending.length) return;
+  try {
+    const res = await fetch('/api/attendance/sync', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(pending)
+    });
+    const result = await res.json();
+    if (result.synced > 0) await ArchDB.markAllSynced();
+  } catch(e) {}
+}
+
+/* ── GPS ── */
+async function requestLocation() {
+  if (!navigator.geolocation) {
+    document.getElementById('gpsLabel').textContent = 'GPS unavailable';
+    return;
+  }
+  const state = await navigator.permissions.query({ name: 'geolocation' }).then(p => p.state).catch(() => 'prompt');
+  if (state === 'granted') { startGPS(); return; }
+
+  const allowed = await askPermission('location');
+  if (!allowed) {
+    if (_locationMandatory) {
+      showToast('Location permission is mandatory. You cannot mark attendance without it.', 'danger', 6000);
+    }
+    document.getElementById('gpsLabel').textContent = 'GPS denied';
+    return;
+  }
+  startGPS();
+}
+
+function startGPS() {
+  navigator.geolocation.watchPosition(pos => {
+    currentLat = pos.coords.latitude;
+    currentLon = pos.coords.longitude;
+    document.getElementById('gpsLabel').textContent =
+      `${currentLat.toFixed(4)}, ${currentLon.toFixed(4)}`;
+    document.getElementById('gpsStatus').classList.add('gps-ok');
+  }, () => {
+    if (_locationMandatory) {
+      showToast('Location permission is mandatory. You cannot mark attendance without it.', 'danger', 6000);
+    }
+    document.getElementById('gpsLabel').textContent = 'GPS denied';
+  });
+}
+
+/* ── Export Modal ── */
+function openExportModal() { openModal(exportModal); }
+
+function setPeriod(period, btn) {
+  exportPeriod = period;
+  document.querySelectorAll('.export-period-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('exportDateWrap').style.display  = period === 'date'  ? '' : 'none';
+  document.getElementById('exportMonthWrap').style.display = period === 'month' ? 'flex' : 'none';
+}
+
+function doExport(fmt) {
+  let url = `/api/attendance/export/${fmt}?`;
+  if (exportPeriod === 'today') {
+    url += `date=${today}`;
+  } else if (exportPeriod === 'date') {
+    url += `date=${document.getElementById('exportDate').value}`;
+  } else {
+    url += `month=${document.getElementById('exportMonth').value}&year=${document.getElementById('exportYear').value}`;
+  }
+  window.location.href = url;
+  exportModal.hide();
+}
+
+/* ── Location Map ── */
+let attMapInstance = null;
+let attMapMarker = null;
+const locationMapModal = new bootstrap.Modal(document.getElementById('locationMapModal'));
+
+function showLocationMap(lat, lon, projectId) {
+  document.getElementById('attMapCoordsLabel').textContent = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+  openModal(locationMapModal);
+
+  const proj = projectId ? projects.find(p => String(p.id) === String(projectId)) : null;
+  const projLat = proj && proj.Latitude ? +proj.Latitude : null;
+  const projLon = proj && proj.Longitude ? +proj.Longitude : null;
+
+  document.getElementById('locationMapModal').addEventListener('shown.bs.modal', function initAttMap() {
+    document.getElementById('locationMapModal').removeEventListener('shown.bs.modal', initAttMap);
+
+    if (attMapInstance) { attMapInstance.remove(); attMapInstance = null; attMapMarker = null; }
+
+    attMapInstance = new maplibregl.Map({
+      container: 'attMapContainer',
+      style: 'https://tiles.openfreemap.org/styles/liberty',
+      center: [lon, lat],
+      zoom: 16
+    });
+
+    attMapInstance.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+
+    attMapInstance.on('styledata', function() {
+      const style = attMapInstance.getStyle();
+      if (!style || !style.layers) return;
+      style.layers.forEach(layer => {
+        if (layer.type === 'symbol' && layer.layout && layer.layout['text-field']) {
+          try {
+            attMapInstance.setLayoutProperty(layer.id, 'text-field', ['coalesce', ['get', 'name:en'], ['get', 'name']]);
+          } catch(_) {}
+        }
+      });
+    });
+
+    attMapInstance.on('load', () => {
+      attMapMarker = new maplibregl.Marker({ color: '#1a3c5e' })
+        .setLngLat([lon, lat])
+        .setPopup(new maplibregl.Popup({ offset: 25 }).setText('Scan Location'))
+        .addTo(attMapInstance);
+
+      if (projLat != null && projLon != null) {
+        new maplibregl.Marker({ color: '#FAA83A' })
+          .setLngLat([projLon, projLat])
+          .setPopup(new maplibregl.Popup({ offset: 25 }).setText(proj.Title || 'Project Location'))
+          .addTo(attMapInstance);
+
+        addDistanceLine(attMapInstance, lon, lat, projLon, projLat);
+
+        const bounds = new maplibregl.LngLatBounds();
+        bounds.extend([lon, lat]);
+        bounds.extend([projLon, projLat]);
+        attMapInstance.fitBounds(bounds, { padding: 60, maxZoom: 16 });
+      }
+    });
+  });
+}
+
+function formatDt(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0')
+    + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0');
+}
+
+function initials(n) { return (n||'').split(' ').map(x=>x[0]||'').join('').toUpperCase().slice(0,2); }
+
+window.addEventListener('online', () => { syncNow(); _syncFromServer(); });
+</script>
+{% endblock %}

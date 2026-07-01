@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2 class="page-title"><i class="fa-solid fa-gauge-high me-2"></i>Dashboard</h2>
+  <span class="page-date" id="todayDate"></span>
+</div>
+
+<!-- Summary Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card stat-card--total">
+      <div class="stat-icon"><i class="fa-solid fa-users"></i></div>
+      <div class="stat-body">
+        <div class="stat-value" id="statTotal">—</div>
+        <div class="stat-label">Total Employees</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card stat-card--projects">
+      <div class="stat-icon"><i class="fa-solid fa-diagram-project"></i></div>
+      <div class="stat-body">
+        <div class="stat-value" id="statProjects">—</div>
+        <div class="stat-label">Active Projects</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card stat-card--present">
+      <div class="stat-icon"><i class="fa-solid fa-user-check"></i></div>
+      <div class="stat-body">
+        <div class="stat-value" id="statPresent">—</div>
+        <div class="stat-label">Present</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card stat-card--absent">
+      <div class="stat-icon"><i class="fa-solid fa-user-xmark"></i></div>
+      <div class="stat-body">
+        <div class="stat-value" id="statAbsent">—</div>
+        <div class="stat-label">Absent</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-3 mb-4">
+  <div class="col-md-4 d-flex">
+    <div class="card chart-card w-100">
+      <div class="card-header">
+        <i class="fa-solid fa-circle-half-stroke me-2"></i>Today's Attendance
+      </div>
+      <div class="card-body d-flex flex-column justify-content-center align-items-center">
+        <div style="position:relative; width:200px; height:200px;">
+          <canvas id="donutChart"></canvas>
+          <div class="donut-center" id="donutCenter">—</div>
+        </div>
+        <div class="d-flex gap-3 mt-2" style="font-size:.8rem;color:#636366;">
+          <span><i class="fa-solid fa-circle me-1" style="color:#28a745;font-size:.55rem;vertical-align:middle;"></i>Present</span>
+          <span><i class="fa-solid fa-circle me-1" style="color:#dc3545;font-size:.55rem;vertical-align:middle;"></i>Absent</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-8 d-flex">
+    <div class="card chart-card w-100">
+      <div class="card-header">
+        <i class="fa-solid fa-chart-bar me-2"></i>Monthly Attendance
+        <span class="ms-auto text-muted small" id="monthLabel"></span>
+      </div>
+      <div class="card-body d-flex align-items-center">
+        <div style="width:100%;position:relative;"><canvas id="barChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Employee List -->
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="fa-solid fa-users me-2"></i>Employees</span>
+    <input type="search" class="form-control form-control-sm w-auto" id="empSearch" placeholder="Search…">
+  </div>
+  <div class="employee-scroll" id="employeeScroll">
+    <div class="text-center py-4 text-muted" id="empLoading">
+      <div class="spinner-border spinner-border-sm"></div> Loading…
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-US', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+const now = new Date();
+document.getElementById('monthLabel').textContent = now.toLocaleString('default', {month:'long', year:'numeric'});
+
+let donutChart, barChart;
+
+async function loadDashboard() {
+  // IDB → UI (instant)
+  try {
+    const cached = await ArchDB.getDashboardSummary();
+    renderSummary(cached);
+  } catch(_) {}
+
+  // API → UI (server has complete data from all devices)
+  try {
+    const res = await fetch('/api/attendance/summary');
+    if (!res.ok) throw 0;
+    const summary = await res.json();
+    if (summary.error) throw 0;
+    renderSummary(summary);
+  } catch(_) {}
+}
+
+function renderSummary(s) {
+  document.getElementById('statTotal').textContent = s.total ?? '—';
+  document.getElementById('statPresent').textContent = s.present ?? '—';
+  document.getElementById('statAbsent').textContent = s.absent ?? '—';
+
+  // Donut
+  const ctx1 = document.getElementById('donutChart').getContext('2d');
+  if (donutChart) donutChart.destroy();
+  donutChart = new Chart(ctx1, {
+    type: 'doughnut',
+    data: {
+      labels: ['Present', 'Absent'],
+      datasets: [{
+        data: [s.present || 0, s.absent || 0],
+        backgroundColor: ['#28a745', '#dc3545'],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      cutout: '72%',
+      plugins: { legend: { display: false } },
+      animation: { animateScale: true }
+    }
+  });
+  const pct = s.total ? Math.round((s.present / s.total) * 100) : 0;
+  document.getElementById('donutCenter').textContent = pct + '%';
+
+  // Bar
+  const ctx2 = document.getElementById('barChart').getContext('2d');
+  if (barChart) barChart.destroy();
+  const labels = (s.monthly || []).map(d => +d.day);
+  const values = (s.monthly || []).map(d => d.count);
+  barChart = new Chart(ctx2, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Attendance',
+        data: values,
+        backgroundColor: '#FAA83A',
+        borderRadius: 4,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { precision: 0, color: '#636366' }, grid: { color: 'rgba(0,0,0,.06)' } },
+        x: { grid: { display: false }, ticks: { color: '#636366' } }
+      }
+    }
+  });
+}
+
+async function loadEmployees() {
+  // IDB → UI (instant)
+  let employees = [];
+  try { employees = await ArchDB.getEmployees(); } catch(_) {}
+  if (employees.length) renderEmployees(employees);
+
+  try {
+    const ps = await ArchDB.getProjects();
+    const active = ps.filter(p => p.Status === 'Active').length;
+    if (active) document.getElementById('statProjects').textContent = active;
+  } catch(_) {}
+
+  // API → IDB → UI
+  try {
+    const res = await fetch('/api/employees/');
+    if (!res.ok) throw 0;
+    const data = await res.json();
+    if (!Array.isArray(data)) throw 0;
+    await ArchDB.cacheEmployees(data);
+    employees = await ArchDB.getEmployees();
+    renderEmployees(employees);
+  } catch(_) {
+    if (!employees.length) {
+      document.getElementById('employeeScroll').innerHTML =
+        '<div class="text-center py-3 text-muted small">No cached data — go online to load employees</div>';
+    }
+  }
+
+  try {
+    const res = await fetch('/api/projects/');
+    if (!res.ok) throw 0;
+    const data = await res.json();
+    if (!Array.isArray(data)) throw 0;
+    await ArchDB.cacheProjects(data);
+    const ps = await ArchDB.getProjects();
+    document.getElementById('statProjects').textContent =
+      ps.filter(p => p.Status === 'Active').length;
+  } catch(_) {}
+}
+
+function renderEmployees(list) {
+  const container = document.getElementById('employeeScroll');
+  container.innerHTML = '';
+  if (!list.length) {
+    container.innerHTML = '<div class="text-center py-3 text-muted">No employees found</div>';
+    return;
+  }
+  list.forEach((emp, idx) => {
+    const avatar = emp.Picture
+      ? `<img src="${emp.Picture}" class="emp-avatar" alt="${emp.FullName}" onerror="imgFallback(this,'${getInitials(emp.FullName)}')">`
+      : `<div class="emp-avatar emp-avatar--initials">${getInitials(emp.FullName)}</div>`;
+    const badge = emp.Active
+      ? '<span class="badge bg-success-subtle text-success">Active</span>'
+      : '<span class="badge bg-secondary-subtle text-secondary">Inactive</span>';
+    container.innerHTML += `
+      <div class="emp-row" data-name="${emp.FullName.toLowerCase()}" style="animation-delay:${idx * 40}ms">
+        ${avatar}
+        <div class="emp-info">
+          <div class="emp-name">${emp.FullName}</div>
+          <div class="emp-meta">${emp.EmployeeCode} · ${emp.Designation || 'Staff'}</div>
+        </div>
+        ${badge}
+      </div>`;
+  });
+}
+
+document.getElementById('empSearch').addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  document.querySelectorAll('.emp-row').forEach(row => {
+    row.style.display = row.dataset.name.includes(q) ? '' : 'none';
+  });
+});
+
+function getInitials(name) {
+  return (name || '').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+}
+
+loadDashboard();
+loadEmployees();
+</script>
+{% endblock %}

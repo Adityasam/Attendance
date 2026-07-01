@@ -1,0 +1,801 @@
+{% extends "base.html" %}
+{% block title %}Employees{% endblock %}
+{% block page_title %}Employees{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+<style>
+  #scanMapContainer { height: 400px; width: 100%; border-radius: 0 0 8px 8px; }
+  .scan-map-coords { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+    background: rgba(255,255,255,.92); padding: 4px 14px; border-radius: 6px;
+    font-size: .82rem; font-weight: 500; box-shadow: 0 1px 4px rgba(0,0,0,.15); z-index: 2; }
+  .btn-icon { background: none; border: none; color: var(--text-2); padding: 4px 8px; border-radius: 6px; }
+  .btn-icon:hover { background: var(--bg-2); color: var(--text-1); }
+  @media (max-width: 767.98px) {
+    .hist-filter-row { flex-wrap: nowrap; }
+    .hist-filter-row .form-select { flex: 1; min-width: 0; width: auto !important; }
+    .hist-filter-row .form-control { flex-shrink: 0; width: 80px !important; max-width: none !important; }
+  }
+  .emp-card { transition: box-shadow .15s ease; overflow: visible; }
+  .emp-card:active { box-shadow: var(--shadow-sm); }
+  .emp-card:has(.dropdown-menu.show) { z-index: 10; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2 class="page-title"><i class="fa-solid fa-users me-2"></i>Employees</h2>
+  <button class="btn btn-primary" onclick="openAddModal()">
+    <i class="fa-solid fa-plus me-1"></i>Add Employee
+  </button>
+</div>
+
+<!-- Search & Filter -->
+<div class="card mb-3">
+  <div class="card-body py-2 d-flex gap-2 align-items-center">
+    <input type="search" class="form-control" id="searchInput" placeholder="Search by name or code…" style="flex:1;min-width:0;">
+    <select class="form-select" id="filterStatus" style="width:auto;flex-shrink:0;">
+      <option value="">All</option>
+      <option value="1">Active</option>
+      <option value="0">Inactive</option>
+    </select>
+  </div>
+</div>
+
+<!-- Employee Table (desktop) -->
+<div class="card d-none d-md-block">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0" id="empTable">
+        <thead>
+          <tr>
+            <th>Employee</th>
+            <th>Code</th>
+            <th>Designation</th>
+            <th>Mobile</th>
+            <th>Status</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="empTbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Employee Cards (mobile) -->
+<div class="d-md-none" id="empCards">
+  <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div> Loading…</div>
+</div>
+
+<!-- Mobile FAB -->
+<button class="fab-btn d-md-none" onclick="openAddModal()">
+  <i class="fa-solid fa-plus fa-lg"></i>
+</button>
+
+<!-- Add/Edit Modal -->
+<div class="modal fade" id="empModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="empModalTitle">Add Employee</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="empId">
+        <div class="row g-3">
+          <!-- Picture -->
+          <div class="col-12 text-center">
+            <div class="emp-pic-preview" id="picPreview" onclick="document.getElementById('picFile').click()">
+              <i class="fa-solid fa-camera fa-2x text-muted"></i>
+              <div class="small text-muted mt-1">Click to upload photo</div>
+            </div>
+            <input type="file" id="picFile" accept="image/*" class="d-none" onchange="previewPic(this)">
+            <div id="faceEnrollStatus" class="small mt-1"></div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Employee Code *</label>
+            <input type="text" class="form-control" id="fEmpCode" placeholder="E001">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Full Name *</label>
+            <input type="text" class="form-control" id="fFullName" placeholder="John Doe">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Designation</label>
+            <input type="text" class="form-control" id="fDesignation" placeholder="Engineer">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Employee Type</label>
+            <select class="form-select" id="fEmpType">
+              <option value="Staff">Staff</option>
+              <option value="Worker">Worker</option>
+              <option value="Manager">Manager</option>
+              <option value="Contractor">Contractor</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Mobile</label>
+            <input type="tel" class="form-control" id="fMobile" placeholder="+1234567890">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-control" id="fEmail" placeholder="john@example.com">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Status</label>
+            <select class="form-select" id="fActive">
+              <option value="1">Active</option>
+              <option value="0">Inactive</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Hidden face data -->
+        <input type="hidden" id="fFaceData">
+
+        <!-- Camera for face enroll -->
+        <div id="faceEnrollArea" class="mt-3 d-none">
+          <div class="text-center">
+            <video id="enrollVideo" autoplay playsinline muted
+                   style="width:100%;max-width:400px;border-radius:12px;"></video>
+            <canvas id="enrollCanvas" class="d-none"></canvas>
+          </div>
+          <div class="d-flex justify-content-center gap-2 mt-2">
+            <button class="btn btn-success" onclick="captureAndEnroll()">
+              <i class="fa-solid fa-check me-1"></i>Capture Face
+            </button>
+            <button class="btn btn-outline-secondary" onclick="stopEnrollCamera()">
+              <i class="fa-solid fa-xmark me-1"></i>Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="saveEmployee()">
+          <i class="fa-solid fa-floppy-disk me-1"></i>Save
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- History Modal -->
+<div class="modal fade" id="historyModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fa-solid fa-clock-rotate-left me-2" style="color:var(--brand);"></i>
+          <span id="historyEmpName">Attendance History</span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex gap-2 mb-3 hist-filter-row">
+          <select class="form-select w-auto" id="histMonth">
+            <option value="1">January</option><option value="2">February</option>
+            <option value="3">March</option><option value="4">April</option>
+            <option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option>
+            <option value="9">September</option><option value="10">October</option>
+            <option value="11">November</option><option value="12">December</option>
+          </select>
+          <input type="number" class="form-control w-auto" id="histYear" min="2020" max="2035" style="max-width:100px;">
+          <button class="btn btn-primary btn-sm" onclick="loadHistory()">
+            <i class="fa-solid fa-magnifying-glass"></i></button>
+        </div>
+        <div class="d-flex gap-3 mb-3">
+          <span class="badge bg-primary-subtle text-primary px-3 py-2" id="histTotalHours">Total: —</span>
+          <span class="badge bg-success-subtle text-success px-3 py-2" id="histPresentDays">Present: —</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0">
+            <thead><tr><th>Day</th><th>Hours</th><th>Scans</th><th>Status</th></tr></thead>
+            <tbody id="histTbody">
+              <tr><td colspan="4" class="text-center text-muted py-3">Select month and year</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Scan Detail Modal -->
+<div class="modal fade" id="scanDetailModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fa-solid fa-list-check me-2" style="color:var(--brand);"></i>
+          <span id="scanDetailTitle">Scan Details</span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive d-none d-md-block">
+          <table class="table table-sm mb-0">
+            <thead><tr><th>#</th><th>Time</th><th>Type</th><th>Project</th><th>Location</th><th>Marked By</th></tr></thead>
+            <tbody id="scanDetailTbody">
+              <tr><td colspan="6" class="text-center text-muted py-3">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="d-md-none" id="scanDetailCards">
+          <div class="text-center text-muted py-3">Loading…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Scan Map Modal -->
+<div class="modal fade" id="scanMapModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fa-solid fa-map-location-dot me-2" style="color:var(--brand);"></i>Scan Location</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0" style="position:relative;">
+        <div id="scanMapContainer"></div>
+        <div class="scan-map-coords" id="scanMapCoords"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- View Modal -->
+<div class="modal fade" id="viewModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Employee Details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="viewBody"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="/static/js/attendance.js"></script>
+<script>
+let employees = [];
+let enrollStream = null;
+let currentPicBase64 = null;
+const empModal = new bootstrap.Modal(document.getElementById('empModal'));
+const viewModal = new bootstrap.Modal(document.getElementById('viewModal'));
+
+async function loadEmployees() {
+  // IDB → UI (instant)
+  try { employees = await ArchDB.getEmployees(); } catch(_) { employees = []; }
+  renderTable(employees);
+
+  // API → IDB → UI
+  try {
+    const res = await fetch('/api/employees/');
+    if (!res.ok) throw 0;
+    const data = await res.json();
+    if (!Array.isArray(data)) throw 0;
+    await ArchDB.cacheEmployees(data);
+    employees = await ArchDB.getEmployees();
+    renderTable(employees);
+  } catch(_) {}
+}
+
+function renderTable(list) {
+  const tbody = document.getElementById('empTbody');
+  const cards = document.getElementById('empCards');
+  const safeName = e => e.FullName.replace(/'/g,'&#39;');
+  const avatar = e => e.Picture
+    ? `<img src="${e.Picture}" class="emp-avatar-sm" alt="" onerror="imgFallback(this,'${getInitials(e.FullName)}')">`
+    : `<div class="emp-avatar-sm emp-avatar--initials-sm">${getInitials(e.FullName)}</div>`;
+  const statusBadge = e => e.Active
+    ? '<span class="badge bg-success-subtle text-success">Active</span>'
+    : '<span class="badge bg-secondary-subtle text-secondary">Inactive</span>';
+  const actionBtns = e => `
+    <button class="btn btn-sm btn-outline-warning me-1" onclick="showHistory('${e.EmployeeCode}',this)" data-name="${safeName(e)}" title="History"><i class="fa-solid fa-clock-rotate-left"></i></button>
+    <button class="btn btn-sm btn-outline-info me-1" onclick="viewEmployee(${e.id})" title="View"><i class="fa-solid fa-eye"></i></button>
+    <button class="btn btn-sm btn-outline-primary me-1" onclick="editEmployee(${e.id})" title="Edit"><i class="fa-solid fa-pen"></i></button>
+    <button class="btn btn-sm btn-outline-danger" onclick="deleteEmployee(${e.id})" title="Delete"><i class="fa-solid fa-trash"></i></button>`;
+  const mobileMenu = e => `<div class="dropdown">
+    <button class="btn btn-sm btn-icon" data-bs-toggle="dropdown" data-bs-auto-close="true"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+    <ul class="dropdown-menu dropdown-menu-end">
+      <li><a class="dropdown-item" href="#" onclick="event.preventDefault();showHistory('${e.EmployeeCode}',this)" data-name="${safeName(e)}"><i class="fa-solid fa-clock-rotate-left me-2"></i>History</a></li>
+      <li><a class="dropdown-item" href="#" onclick="event.preventDefault();viewEmployee(${e.id})"><i class="fa-solid fa-eye me-2"></i>View</a></li>
+      <li><a class="dropdown-item" href="#" onclick="event.preventDefault();editEmployee(${e.id})"><i class="fa-solid fa-pen me-2"></i>Edit</a></li>
+      <li><hr class="dropdown-divider"></li>
+      <li><a class="dropdown-item text-danger" href="#" onclick="event.preventDefault();deleteEmployee(${e.id})"><i class="fa-solid fa-trash me-2"></i>Delete</a></li>
+    </ul>
+  </div>`;
+
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">No employees found</td></tr>';
+    cards.innerHTML = '<div class="text-center py-4 text-muted">No employees found</div>';
+    return;
+  }
+
+  // Desktop table
+  tbody.innerHTML = list.map(e => `
+    <tr>
+      <td>
+        <div class="d-flex align-items-center gap-2">
+          ${avatar(e)}
+          <div class="fw-semibold">${e.FullName}</div>
+        </div>
+      </td>
+      <td>${e.EmployeeCode}</td>
+      <td>${e.Designation || '—'}</td>
+      <td>${e.Mobile || '—'}</td>
+      <td>${statusBadge(e)}</td>
+      <td class="text-end text-nowrap">${actionBtns(e)}</td>
+    </tr>`).join('');
+
+  // Mobile cards
+  cards.innerHTML = list.map(e => `
+    <div class="card mb-2 emp-card">
+      <div class="card-body py-2 px-3 d-flex align-items-center gap-3">
+        ${avatar(e)}
+        <div style="flex:1;min-width:0;">
+          <div class="fw-semibold text-truncate">${e.FullName}</div>
+          <div class="text-muted small">${e.EmployeeCode}</div>
+        </div>
+        ${statusBadge(e)}
+        ${mobileMenu(e)}
+      </div>
+    </div>`).join('');
+}
+
+// Search & filter
+document.getElementById('searchInput').addEventListener('input', filterTable);
+document.getElementById('filterStatus').addEventListener('change', filterTable);
+function filterTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const s = document.getElementById('filterStatus').value;
+  const filtered = employees.filter(e => {
+    const matchQ = e.FullName.toLowerCase().includes(q) || e.EmployeeCode.toLowerCase().includes(q);
+    const matchS = s === '' || String(e.Active) === s;
+    return matchQ && matchS;
+  });
+  renderTable(filtered);
+}
+
+function openAddModal() {
+  document.getElementById('empModalTitle').textContent = 'Add Employee';
+  document.getElementById('empId').value = '';
+  ['fEmpCode','fFullName','fDesignation','fMobile','fEmail','fFaceData'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('fEmpType').value = 'Staff';
+  document.getElementById('fActive').value = '1';
+  document.getElementById('picPreview').innerHTML = '<i class="fa-solid fa-camera fa-2x text-muted"></i><div class="small text-muted mt-1">Click to upload photo</div>';
+  currentPicBase64 = null;
+
+  document.getElementById('faceEnrollStatus').textContent = '';
+  hideFaceEnroll();
+  openModal(empModal);
+}
+
+function editEmployee(id) {
+  const emp = employees.find(e => e.id === id);
+  if (!emp) return;
+  document.getElementById('empModalTitle').textContent = 'Edit Employee';
+  document.getElementById('empId').value = emp.id;
+  document.getElementById('fEmpCode').value = emp.EmployeeCode;
+  document.getElementById('fFullName').value = emp.FullName;
+  document.getElementById('fDesignation').value = emp.Designation || '';
+  document.getElementById('fMobile').value = emp.Mobile || '';
+  document.getElementById('fEmail').value = emp.Email || '';
+  document.getElementById('fEmpType').value = emp.EmployeeType || 'Staff';
+  document.getElementById('fActive').value = emp.Active ? '1' : '0';
+  document.getElementById('fFaceData').value = emp.FaceData || '';
+
+  if (emp.Picture) {
+    document.getElementById('picPreview').innerHTML = `<img src="${emp.Picture}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" onerror="this.parentElement.innerHTML='<i class=\\'fa-solid fa-camera fa-2x text-muted\\'></i><div class=\\'small text-muted mt-1\\'>Photo unavailable</div>'">`;
+    currentPicBase64 = emp.Picture;
+
+  } else {
+    document.getElementById('picPreview').innerHTML = '<i class="fa-solid fa-camera fa-2x text-muted"></i><div class="small text-muted mt-1">Click to upload photo</div>';
+    currentPicBase64 = null;
+  
+  }
+  document.getElementById('faceEnrollStatus').textContent = emp.FaceData ? '✓ Face enrolled' : '';
+  hideFaceEnroll();
+  openModal(empModal);
+}
+
+function viewEmployee(id) {
+  const emp = employees.find(e => e.id === id);
+  if (!emp) return;
+  document.getElementById('viewBody').innerHTML = `
+    <div class="text-center mb-3">
+      ${emp.Picture
+        ? `<img src="${emp.Picture}" style="width:100px;height:100px;object-fit:cover;border-radius:50%;" onerror="imgFallback(this,'${getInitials(emp.FullName)}')" class="emp-avatar">`
+        : `<div class="emp-avatar emp-avatar--initials" style="width:100px;height:100px;font-size:2rem;margin:auto;">${getInitials(emp.FullName)}</div>`}
+    </div>
+    <table class="table table-sm">
+      <tr><th>Code</th><td>${emp.EmployeeCode}</td></tr>
+      <tr><th>Name</th><td>${emp.FullName}</td></tr>
+      <tr><th>Designation</th><td>${emp.Designation || '—'}</td></tr>
+      <tr><th>Type</th><td>${emp.EmployeeType || '—'}</td></tr>
+      <tr><th>Mobile</th><td>${emp.Mobile || '—'}</td></tr>
+      <tr><th>Email</th><td>${emp.Email || '—'}</td></tr>
+      <tr><th>Status</th><td>${emp.Active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>'}</td></tr>
+      <tr><th>Face Enrolled</th><td>${emp.FaceData ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-warning text-dark">No</span>'}</td></tr>
+    </table>`;
+  openModal(viewModal);
+}
+
+async function previewPic(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const base64 = await new Promise(r => {
+    const fr = new FileReader();
+    fr.onload = e => r(e.target.result);
+    fr.readAsDataURL(file);
+  });
+
+  const preview = document.getElementById('picPreview');
+  const status = document.getElementById('faceEnrollStatus');
+  preview.innerHTML = `<img src="${base64}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">`;
+  status.innerHTML = '<span class="text-muted"><i class="fa-solid fa-spinner fa-spin me-1"></i>Detecting face…</span>';
+
+  try {
+    await AttendanceModule.loadModels();
+    const img = preview.querySelector('img');
+    const descriptor = await AttendanceModule.getFaceDescriptor(img);
+    if (!descriptor) {
+      showToast('No face detected in photo. Please upload a clear face photo.', 'warning');
+      status.innerHTML = '<span class="text-danger">No face detected</span>';
+      preview.innerHTML = '<i class="fa-solid fa-camera fa-2x text-muted"></i><div class="small text-muted mt-1">Click to upload photo</div>';
+      currentPicBase64 = null;
+      document.getElementById('fFaceData').value = '';
+      input.value = '';
+      return;
+    }
+    currentPicBase64 = base64;
+    document.getElementById('fFaceData').value = JSON.stringify(Array.from(descriptor));
+    status.innerHTML = '<span class="text-success"><i class="fa-solid fa-circle-check me-1"></i>Face detected</span>';
+  } catch(e) {
+    showToast('Face detection error: ' + e.message, 'danger');
+    status.innerHTML = '';
+    currentPicBase64 = base64;
+  }
+}
+
+async function captureFromCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({video: true});
+    const video = document.createElement('video');
+    video.srcObject = stream;
+    video.play();
+    await new Promise(r => video.onloadedmetadata = r);
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    stream.getTracks().forEach(t => t.stop());
+    currentPicBase64 = canvas.toDataURL('image/jpeg', 0.85);
+    document.getElementById('picPreview').innerHTML =
+      `<img src="${currentPicBase64}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">`;
+
+  } catch(e) {
+    showToast('Camera access denied', 'danger');
+  }
+}
+
+async function enrollFace() {
+  if (!currentPicBase64) return;
+  document.getElementById('faceEnrollArea').classList.remove('d-none');
+  const video = document.getElementById('enrollVideo');
+  try {
+    await AttendanceModule.loadModels();
+    enrollStream = await navigator.mediaDevices.getUserMedia({video: true});
+    video.srcObject = enrollStream;
+  } catch(e) {
+    showToast('Camera error: ' + e.message, 'danger');
+    hideFaceEnroll();
+  }
+}
+
+async function captureAndEnroll() {
+  const video = document.getElementById('enrollVideo');
+  const canvas = document.getElementById('enrollCanvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+
+  try {
+    const descriptor = await AttendanceModule.getFaceDescriptor(canvas);
+    if (!descriptor) {
+      showToast('No face detected. Try again.', 'warning');
+      return;
+    }
+    document.getElementById('fFaceData').value = JSON.stringify(Array.from(descriptor));
+    document.getElementById('faceEnrollStatus').innerHTML = '<span class="text-success">✓ Face enrolled successfully</span>';
+    showToast('Face enrolled!', 'success');
+    stopEnrollCamera();
+  } catch(e) {
+    showToast('Face detection error: ' + e.message, 'danger');
+  }
+}
+
+function stopEnrollCamera() {
+  if (enrollStream) { enrollStream.getTracks().forEach(t => t.stop()); enrollStream = null; }
+  hideFaceEnroll();
+}
+
+function hideFaceEnroll() {
+  document.getElementById('faceEnrollArea').classList.add('d-none');
+}
+
+async function saveEmployee() {
+  const id = document.getElementById('empId').value;
+  const payload = {
+    EmployeeCode: document.getElementById('fEmpCode').value.trim(),
+    FullName: document.getElementById('fFullName').value.trim(),
+    Designation: document.getElementById('fDesignation').value.trim(),
+    Mobile: document.getElementById('fMobile').value.trim(),
+    Email: document.getElementById('fEmail').value.trim(),
+    EmployeeType: document.getElementById('fEmpType').value,
+    Active: parseInt(document.getElementById('fActive').value),
+    FaceData: document.getElementById('fFaceData').value,
+    Picture: currentPicBase64
+  };
+
+  if (!payload.EmployeeCode || !payload.FullName) {
+    showToast('Employee Code and Name are required', 'warning');
+    return;
+  }
+
+  let tempId, opId;
+  try {
+    if (id) {
+      const numId = parseInt(id);
+      const existing = employees.find(emp => emp.id === numId) || {};
+      await ArchDB.putEmployee({ ...existing, ...payload, id: numId });
+      if (numId < 0) {
+        await ArchDB.removePendingOpsForTempId('employee', numId);
+        opId = await ArchDB.savePendingOp({ entity: 'employee', action: 'create', tempId: numId, data: payload });
+      } else {
+        opId = await ArchDB.savePendingOp({ entity: 'employee', action: 'update', entityId: numId, data: payload });
+      }
+    } else {
+      tempId = -Date.now();
+      await ArchDB.putEmployee({ ...payload, id: tempId, Deleted: 0 });
+      opId = await ArchDB.savePendingOp({ entity: 'employee', action: 'create', tempId, data: payload });
+    }
+  } catch(dbErr) {
+    showToast('Failed to save: ' + dbErr.message, 'danger');
+    return;
+  }
+
+  empModal.hide();
+  showToast(id ? 'Employee updated' : 'Employee added', 'success');
+  employees = await ArchDB.getEmployees();
+  renderTable(employees);
+
+  if (navigator.onLine) {
+    try {
+      const url = id ? `/api/employees/${id}` : '/api/employees/';
+      const method = id ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method, headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        if (opId) await ArchDB.deleteOp(opId);
+        if (tempId) await ArchDB.removeEmployee(tempId);
+        const listRes = await fetch('/api/employees/');
+        if (listRes.ok) {
+          const data = await listRes.json();
+          if (Array.isArray(data)) {
+            await ArchDB.cacheEmployees(data);
+            employees = await ArchDB.getEmployees();
+            renderTable(employees);
+          }
+        }
+      }
+    } catch(_) {}
+  }
+}
+
+async function deleteEmployee(id) {
+  const emp = employees.find(e => e.id === id);
+  if (!confirm(`Delete ${emp?.FullName}?`)) return;
+
+  await ArchDB.removeEmployee(id);
+  let opId;
+  if (id > 0) {
+    opId = await ArchDB.savePendingOp({ entity: 'employee', action: 'delete', entityId: id });
+  } else {
+    await ArchDB.removePendingOpsForTempId('employee', id);
+  }
+
+  employees = employees.filter(emp => emp.id !== id);
+  renderTable(employees);
+  showToast('Employee deleted', 'success');
+
+  if (navigator.onLine && id > 0) {
+    try {
+      const res = await fetch(`/api/employees/${id}`, {method: 'DELETE'});
+      if (res.ok && opId) await ArchDB.deleteOp(opId);
+    } catch(_) {}
+  }
+}
+
+function getInitials(n) { return (n||'').split(' ').map(x=>x[0]).join('').toUpperCase().slice(0,2); }
+
+const historyModal = new bootstrap.Modal(document.getElementById('historyModal'));
+let histEmpCode = '';
+
+function showHistory(code, btn) {
+  histEmpCode = code;
+  const name = btn.dataset.name;
+  document.getElementById('historyEmpName').textContent = name + ' — History';
+  const now = new Date();
+  document.getElementById('histMonth').value = now.getMonth() + 1;
+  document.getElementById('histYear').value = now.getFullYear();
+  openModal(historyModal);
+  loadHistory();
+}
+
+async function loadHistory() {
+  if (!histEmpCode) return;
+  const m = document.getElementById('histMonth').value;
+  const y = document.getElementById('histYear').value;
+  const tbody = document.getElementById('histTbody');
+  tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3"><div class="spinner-border spinner-border-sm"></div></td></tr>';
+
+  try {
+    const res = await fetch(`/api/attendance/employee-history/${histEmpCode}?month=${m}&year=${y}`);
+    if (!res.ok) throw 0;
+    const data = await res.json();
+
+    document.getElementById('histTotalHours').textContent = 'Total: ' + data.total_hours;
+    document.getElementById('histPresentDays').textContent = 'Present: ' + data.present_days + ' / ' + data.working_days + ' days';
+
+    if (!data.days || !data.days.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No data</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.days.map(d => {
+      const present = d.scans > 0;
+      const status = present ? '<span class="badge bg-success-subtle text-success">Present</span>'
+                             : '<span class="badge bg-secondary-subtle text-secondary">Absent</span>';
+      const dateStr = `${y}-${String(m).padStart(2,'0')}-${String(d.day).padStart(2,'0')}`;
+      const clickAttr = present ? `onclick="showDayDetail('${dateStr}', ${d.day})" style="cursor:pointer;"` : '';
+      return `<tr ${clickAttr} ${present ? 'class="table-row-clickable"' : ''}>
+        <td>${d.day}</td>
+        <td>${present ? d.hours : '—'}</td>
+        <td>${d.scans || '—'}</td>
+        <td>${status} ${present ? '<i class="fa-solid fa-chevron-right text-muted small ms-1"></i>' : ''}</td>
+      </tr>`;
+    }).join('');
+  } catch(_) {
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">Failed to load</td></tr>';
+  }
+}
+
+const scanDetailModal = new bootstrap.Modal(document.getElementById('scanDetailModal'));
+
+async function showDayDetail(dateStr, dayNum) {
+  document.getElementById('scanDetailTitle').textContent =
+    document.getElementById('historyEmpName').textContent.replace(' — History', '') + ' — ' + dateStr;
+  const tbody = document.getElementById('scanDetailTbody');
+  const mcards = document.getElementById('scanDetailCards');
+  tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3"><div class="spinner-border spinner-border-sm"></div></td></tr>';
+  mcards.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm"></div></div>';
+  openModal(scanDetailModal);
+
+  try {
+    const res = await fetch(`/api/attendance/employee-day-detail/${histEmpCode}?date=${dateStr}`);
+    if (!res.ok) throw 0;
+    const data = await res.json();
+    if (!data.scans || !data.scans.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No scans</td></tr>';
+      mcards.innerHTML = '<div class="text-center text-muted py-3">No scans</div>';
+      return;
+    }
+
+    const mapLink = s => (s.Latitude && s.Longitude)
+      ? `<a href="#" onclick="event.preventDefault();showScanMap(${+s.Latitude},${+s.Longitude},${s.ProjectLat ? +s.ProjectLat : 'null'},${s.ProjectLon ? +s.ProjectLon : 'null'},'${(s.ProjectName||'').replace(/'/g,"\\'")}')" class="text-decoration-none">${Number(s.Latitude).toFixed(4)}, ${Number(s.Longitude).toFixed(4)}</a>`
+      : '—';
+    const typeBadge = s => s.Type === 'In'
+      ? '<span class="badge bg-success-subtle text-success">In</span>'
+      : '<span class="badge bg-danger-subtle text-danger">Out</span>';
+
+    // Desktop table
+    tbody.innerHTML = data.scans.map((s, i) => {
+      const time = (s.AttendanceDateTime || '').slice(11, 19) || '—';
+      return `<tr>
+        <td>${i + 1}</td>
+        <td>${time}</td>
+        <td>${typeBadge(s)}</td>
+        <td>${s.ProjectName || '—'}</td>
+        <td>${mapLink(s)}</td>
+        <td>${s.MarkedBy || '—'}</td>
+      </tr>`;
+    }).join('');
+
+    // Mobile cards
+    mcards.innerHTML = data.scans.map((s, i) => {
+      const time = (s.AttendanceDateTime || '').slice(11, 16) || '—';
+      return `<div class="card mb-2">
+        <div class="card-body py-2 px-3">
+          <div class="d-flex align-items-center justify-content-between mb-1">
+            <span class="fw-semibold">${time}</span>
+            ${typeBadge(s)}
+          </div>
+          ${s.ProjectName ? `<div class="small text-muted"><i class="fa-solid fa-diagram-project me-1"></i>${s.ProjectName}</div>` : ''}
+          ${(s.Latitude && s.Longitude) ? `<div class="small"><i class="fa-solid fa-location-dot me-1"></i>${mapLink(s)}</div>` : ''}
+          ${s.MarkedBy ? `<div class="small text-muted"><i class="fa-solid fa-user me-1"></i>${s.MarkedBy}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  } catch(_) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">Failed to load</td></tr>';
+    mcards.innerHTML = '<div class="text-center text-muted py-3">Failed to load</div>';
+  }
+}
+
+/* ── Scan Location Map ── */
+let scanMapInst = null;
+const scanMapModal = new bootstrap.Modal(document.getElementById('scanMapModal'));
+
+function showScanMap(lat, lon, projLat, projLon, projName) {
+  document.getElementById('scanMapCoords').textContent = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+  openModal(scanMapModal);
+
+  document.getElementById('scanMapModal').addEventListener('shown.bs.modal', function init() {
+    document.getElementById('scanMapModal').removeEventListener('shown.bs.modal', init);
+
+    if (scanMapInst) { scanMapInst.remove(); scanMapInst = null; }
+
+    scanMapInst = new maplibregl.Map({
+      container: 'scanMapContainer',
+      style: 'https://tiles.openfreemap.org/styles/liberty',
+      center: [lon, lat],
+      zoom: 16
+    });
+    scanMapInst.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+
+    scanMapInst.on('styledata', function() {
+      const style = scanMapInst.getStyle();
+      if (!style || !style.layers) return;
+      style.layers.forEach(layer => {
+        if (layer.type === 'symbol' && layer.layout && layer.layout['text-field']) {
+          try { scanMapInst.setLayoutProperty(layer.id, 'text-field', ['coalesce', ['get', 'name:en'], ['get', 'name']]); } catch(_) {}
+        }
+      });
+    });
+
+    scanMapInst.on('load', () => {
+      new maplibregl.Marker({ color: '#1a3c5e' })
+        .setLngLat([lon, lat])
+        .setPopup(new maplibregl.Popup({ offset: 25 }).setText('Scan Location'))
+        .addTo(scanMapInst);
+
+      if (projLat != null && projLon != null) {
+        new maplibregl.Marker({ color: '#FAA83A' })
+          .setLngLat([projLon, projLat])
+          .setPopup(new maplibregl.Popup({ offset: 25 }).setText(projName || 'Project Location'))
+          .addTo(scanMapInst);
+
+        addDistanceLine(scanMapInst, lon, lat, projLon, projLat);
+
+        const bounds = new maplibregl.LngLatBounds();
+        bounds.extend([lon, lat]);
+        bounds.extend([projLon, projLat]);
+        scanMapInst.fitBounds(bounds, { padding: 60, maxZoom: 16 });
+      }
+    });
+  });
+}
+
+loadEmployees();
+window.addEventListener('offlineSynced', () => loadEmployees());
+</script>
+{% endblock %}

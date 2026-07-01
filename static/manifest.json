@@ -1,0 +1,36 @@
+{
+  "name": "Arch Attendance",
+  "short_name": "Arch",
+  "description": "Employee Attendance Management with Face Recognition",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1a3c5e",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/static/icons/archlogo72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/archlogo144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Mark Attendance",
+      "url": "/attendance",
+      "icons": [{"src": "/static/icons/archlogo72.png", "sizes": "72x72"}]
+    },
+    {
+      "name": "Dashboard",
+      "url": "/",
+      "icons": [{"src": "/static/icons/archlogo72.png", "sizes": "72x72"}]
+    }
+  ]
+}
