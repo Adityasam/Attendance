@@ -7,18 +7,82 @@
 <style>
   #attMapContainer { height: 400px; width: 100%; border-radius: 0 0 8px 8px; }
   .att-map-coords-label { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
-    z-index: 1000; background: rgba(26,60,94,.9); color: #fff; padding: 4px 14px;
+    z-index: 1000; background: rgba(34,48,63,.9); color: #fff; padding: 4px 14px;
     border-radius: 6px; font-size: .82rem; pointer-events: none; }
   .att-video { width: 100%; max-height: 68vh; object-fit: cover; display: block; transform: scaleX(-1); }
   .att-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
   @media (max-width: 767.98px) {
     .att-video { max-height: 100vh; height: 100vh; }
   }
+
+  /* Camera modal modern skin */
+  .cam-modal .modal-content { background:#0d0d0d !important; border:none !important; border-radius:16px !important; overflow:hidden; }
+  @media (max-width: 767.98px) { .cam-modal .modal-content { border-radius:0 !important; } }
+  .cam-header { display:flex; align-items:center; justify-content:space-between; padding:14px 16px;
+    background:linear-gradient(135deg,#111 0%,#1a1a1a 100%); border-bottom:1px solid rgba(255,255,255,.06); }
+  .cam-title { display:flex; align-items:center; gap:10px; color:#fff; font-size:1.05rem; font-weight:600; }
+  .cam-title-icon { width:32px; height:32px; border-radius:10px; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(135deg,#F15A24,#F15A24); color:#fff; font-size:.85rem; }
+  .cam-badge { padding:5px 12px; border-radius:20px; font-size:.75rem; font-weight:600; letter-spacing:.3px;
+    background:rgba(241,90,36,.15); color:#F15A24; border:1px solid rgba(241,90,36,.2); }
+  .cam-close-btn { width:34px; height:34px; border-radius:50%; border:none; background:rgba(255,255,255,.08);
+    color:rgba(255,255,255,.7); display:flex; align-items:center; justify-content:center; cursor:pointer;
+    transition:all .2s; font-size:.9rem; }
+  .cam-close-btn:hover { background:rgba(255,255,255,.15); color:#fff; }
+  .cam-project-bar { padding:10px 16px; background:rgba(255,255,255,.03); border-bottom:1px solid rgba(255,255,255,.06); }
+  .cam-project-sel { background:rgba(255,255,255,.06) !important; color:#fff !important; border:1px solid rgba(255,255,255,.1) !important;
+    border-radius:10px !important; padding:8px 12px; font-size:.9rem; transition:border-color .2s; }
+  .cam-project-sel:focus { border-color:rgba(241,90,36,.5) !important; box-shadow:0 0 0 3px rgba(241,90,36,.1) !important; }
+  .cam-project-sel option { background:#1a1a1a; color:#fff; }
+  .cam-overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; z-index:10;
+    background:rgba(0,0,0,.7); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); }
+  .cam-overlay-inner { text-align:center; color:#888; }
+  .cam-overlay-icon { width:64px; height:64px; border-radius:16px; margin:0 auto 16px; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(135deg,rgba(241,90,36,.2),rgba(241,90,36,.05)); border:1px solid rgba(241,90,36,.15); }
+  .cam-overlay-icon i { font-size:1.6rem; color:#F15A24; }
+  .cam-overlay-text { font-size:.95rem; color:rgba(255,255,255,.5); }
+  .cam-confirm { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; z-index:11;
+    background:rgba(0,0,0,.75); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); }
+  .cam-confirm-card { text-align:center; min-width:260px; padding:28px 24px; border-radius:20px;
+    background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); }
+  .cam-confirm-avatar { margin:0 auto 14px; }
+  .cam-confirm-label { color:#fff; font-size:1.25rem; font-weight:700; margin-bottom:2px; }
+  .cam-confirm-name { color:rgba(255,255,255,.55); font-size:.95rem; margin-bottom:24px; }
+  .cam-confirm-actions { display:flex; gap:12px; justify-content:center; }
+  .cam-btn-cancel { padding:10px 24px; border-radius:12px; border:1px solid rgba(255,255,255,.15); background:rgba(255,255,255,.06);
+    color:rgba(255,255,255,.8); font-weight:500; cursor:pointer; transition:all .2s; font-size:.9rem; }
+  .cam-btn-cancel:hover { background:rgba(255,255,255,.12); color:#fff; }
+  .cam-btn-accept { padding:10px 24px; border-radius:12px; border:none; font-weight:600; cursor:pointer;
+    transition:all .2s; font-size:.9rem; }
+  .cam-btn-accept.sign-in { background:linear-gradient(135deg,#22c55e,#16a34a); color:#fff; }
+  .cam-btn-accept.sign-in:hover { background:linear-gradient(135deg,#16a34a,#15803d); }
+  .cam-btn-accept.sign-out { background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff; }
+  .cam-btn-accept.sign-out:hover { background:linear-gradient(135deg,#dc2626,#b91c1c); }
+  .cam-footer { display:flex; align-items:center; justify-content:space-between; padding:12px 16px;
+    background:linear-gradient(135deg,#111 0%,#1a1a1a 100%); border-top:1px solid rgba(255,255,255,.06); }
+  .cam-footer-hint { color:rgba(255,255,255,.35); font-size:.78rem; display:flex; align-items:center; gap:6px; }
+  .cam-footer-hint i { font-size:.7rem; color:rgba(241,90,36,.5); }
+  .cam-switch-btn { width:40px; height:40px; border-radius:50%; border:none; background:rgba(255,255,255,.08);
+    color:rgba(255,255,255,.7); display:flex; align-items:center; justify-content:center; cursor:pointer;
+    transition:all .2s; font-size:1rem; }
+  .cam-switch-btn:hover { background:rgba(255,255,255,.15); color:#fff; transform:rotate(180deg); }
+
+  /* Camera loading overlay */
+  .cam-loader { position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.6); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
+  .cam-loader-card { text-align:center; padding:36px 48px; border-radius:20px;
+    background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.08); }
+  .cam-loader-ring { width:52px; height:52px; margin:0 auto 18px; border-radius:50%;
+    border:3px solid rgba(255,255,255,.1); border-top-color:#F15A24;
+    animation:camSpin .8s linear infinite; }
+  @keyframes camSpin { to { transform:rotate(360deg); } }
+  .cam-loader-text { color:rgba(255,255,255,.7); font-size:.95rem; font-weight:500; }
+  .cam-loader-sub { color:rgba(255,255,255,.35); font-size:.78rem; margin-top:6px; }
 </style>
 {% endblock %}
 
 {% block topbar_right %}
-<button class="btn btn-outline-primary btn-sm" onclick="openExportModal()" style="position:absolute;right:16px;z-index:1;">
+<button class="btn btn-sm" onclick="openExportModal()" style="position:absolute;right:16px;z-index:1;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.2);">
   <i class="fa-solid fa-file-export"></i>
 </button>
 {% endblock %}
@@ -73,44 +137,67 @@
   <i class="fa-solid fa-camera fa-lg"></i>
 </button>
 
+<!-- Camera Loader -->
+<div id="camLoader" class="cam-loader d-none">
+  <div class="cam-loader-card">
+    <div class="cam-loader-ring"></div>
+    <div class="cam-loader-text">Preparing Face Scan</div>
+    <div class="cam-loader-sub">Loading models & camera…</div>
+  </div>
+</div>
+
 <!-- ── Camera Modal ── -->
-<div class="modal fade" id="cameraModal" tabindex="-1" data-bs-backdrop="static">
+<div class="modal fade cam-modal" id="cameraModal" tabindex="-1" data-bs-backdrop="static">
   <div class="modal-dialog modal-fullscreen-md-down modal-lg">
-    <div class="modal-content" style="background:#0a0a0a !important; border-color:#222 !important;border-radius:0px !important;">
-      <div class="modal-header" style="background:#111 !important; border-color:#2a2a2a !important;">
-        <h5 class="modal-title text-white">
-          <i class="fa-solid fa-camera me-2" style="color:#FAA83A;"></i>Face Scan
-        </h5>
-        <div class="ms-auto d-flex align-items-center gap-3">
-          <span id="sessionCount" class="badge" style="background:#FAA83A;color:#fff;">0 scanned</span>
-          <button class="btn btn-sm" style="background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.2);"
-                  onclick="closeCamera()">
+    <div class="modal-content">
+      <div class="cam-header">
+        <div class="cam-title">
+          <div class="cam-title-icon"><i class="fa-solid fa-shield-halved"></i></div>
+          Face Scan
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span id="sessionCount" class="cam-badge">0 scanned</span>
+          <button class="cam-close-btn" onclick="closeCamera()">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
       </div>
-      <div class="px-3 py-2" style="background:#111 !important; border-bottom:1px solid #2a2a2a;">
-        <select class="form-select" id="camProjectSelect" onchange="onCamProjectChange()" style="background:#1a1a1a;color:#fff;border-color:#333;">
+      <div class="cam-project-bar">
+        <select class="form-select cam-project-sel" id="camProjectSelect" onchange="onCamProjectChange()">
           <option value="">Select Project</option>
         </select>
       </div>
       <div class="modal-body p-0 text-center" style="position:relative;background:#000;overflow:hidden;">
         <video id="attVideo" autoplay playsinline muted class="att-video"></video>
         <canvas id="attCanvas" class="att-canvas d-none d-md-block"></canvas>
-        <div id="camProjectOverlay" style="position:absolute;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:10;">
-          <div style="color:#888;text-align:center;">
-            <i class="fa-solid fa-diagram-project fa-3x mb-3" style="color:#FAA83A;"></i>
-            <div style="font-size:1.1rem;">Select a project to start scanning</div>
+        <div id="camProjectOverlay" class="cam-overlay">
+          <div class="cam-overlay-inner">
+            <div class="cam-overlay-icon"><i class="fa-solid fa-diagram-project"></i></div>
+            <div class="cam-overlay-text">Select a project to start scanning</div>
+          </div>
+        </div>
+        <div id="scanConfirmOverlay" class="cam-confirm d-none">
+          <div class="cam-confirm-card">
+            <div id="scanConfirmAvatar" class="cam-confirm-avatar"></div>
+            <div id="scanConfirmLabel" class="cam-confirm-label"></div>
+            <div id="scanConfirmName" class="cam-confirm-name"></div>
+            <div class="cam-confirm-actions">
+              <button class="cam-btn-cancel" id="scanCancelBtn" onclick="cancelScanConfirm()">
+                <i class="fa-solid fa-xmark me-1"></i>Cancel
+              </button>
+              <button class="cam-btn-accept" id="scanAcceptBtn"></button>
+            </div>
           </div>
         </div>
         <div id="attStatus" class="att-status-bar">
           <i class="fa-solid fa-circle-notch fa-spin"></i> Initializing…
         </div>
       </div>
-      <div class="modal-footer d-flex justify-content-between align-items-center" style="background:#111 !important; border-color:#2a2a2a !important;">
-        <span style="color:#888;font-size:.82rem;">One scan per employee per session</span>
-        <button class="btn btn-sm" style="background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.2);"
-                onclick="AttendanceModule.switchCamera()">
+      <div class="cam-footer">
+        <div class="cam-footer-hint">
+          <i class="fa-solid fa-circle-info"></i> Confirm each scan before marking
+        </div>
+        <button class="cam-switch-btn" onclick="AttendanceModule.switchCamera()" title="Switch camera">
           <i class="fa-solid fa-camera-rotate"></i>
         </button>
       </div>
@@ -227,12 +314,14 @@ let allEmployees  = [];
 let todayRecords  = [];   // all server records for today
 let scanCounts    = {};   // empCode → # of scans today
 let projectScans  = {};   // empCode → { projectId → count }
-let sessionScanned = new Set(); // reset each camera open
+let _scanCount = 0;
+let _pendingScanEmp = null;
 let currentLat = null, currentLon = null;
 let projects   = [];
 let exportPeriod = 'today';
 let _locationMandatory = false;
 let _manualAttendance = false;
+let _gridAnimated = false;
 
 const cameraModal     = new bootstrap.Modal(document.getElementById('cameraModal'));
 const empHistoryModal = new bootstrap.Modal(document.getElementById('empHistoryModal'));
@@ -274,8 +363,9 @@ const exportModal     = new bootstrap.Modal(document.getElementById('exportModal
 
   await Promise.all([loadProjects(), loadEmployees()]);
   await loadTodayRecords();
+  _gridAnimated = true;
   if (_locationMandatory) requestLocation();
-  _syncFromServer();
+  setTimeout(_syncFromServer, 1000);
 })();
 
 /* ── Data Loading ── */
@@ -386,7 +476,7 @@ function renderGrid() {
     return `
     <div class="att-card" data-code="${emp.EmployeeCode}"
          onclick="showEmpHistory('${emp.EmployeeCode}')"
-         style="animation:fadeUp .4s ease ${idx*25}ms both">
+         style="${_gridAnimated ? '' : `animation:fadeUp .4s ease ${idx*25}ms both`}">
       <div class="att-card-strip att-card-strip--${st}"></div>
       ${avatar}
       <div class="att-card-info">
@@ -412,6 +502,22 @@ function updateSummaryBadge() {
 async function showEmpHistory(empCode) {
   const emp = allEmployees.find(e => e.EmployeeCode === empCode);
   if (!emp) return;
+
+  if (_locationMandatory) {
+    const locState = await navigator.permissions.query({ name: 'geolocation' }).then(p => p.state).catch(() => 'denied');
+    if (locState === 'denied') {
+      showToast('Location permission is mandatory. Please enable it in browser settings.', 'danger', 5000);
+      return;
+    }
+    if (locState === 'prompt') {
+      const allowed = await askPermission('location');
+      if (!allowed) {
+        showToast('Location permission is mandatory. You cannot mark attendance without it.', 'danger', 5000);
+      }
+      startGPS();
+      return;
+    }
+  }
 
   document.getElementById('histAvatarWrap').innerHTML = emp.Picture
     ? `<img src="${emp.Picture}" class="emp-avatar" alt="" onerror="imgFallback(this,'${initials(emp.FullName)}')">`
@@ -637,8 +743,12 @@ async function openCamera() {
     return;
   }
 
-  sessionScanned = new Set();
+  _scanCount = 0;
   document.getElementById('sessionCount').textContent = '0 scanned';
+  document.getElementById('scanConfirmOverlay').classList.add('d-none');
+
+  const loader = document.getElementById('camLoader');
+  loader.classList.remove('d-none');
   try {
     await AttendanceModule.loadModels();
     await AttendanceModule.startCamera(
@@ -647,36 +757,67 @@ async function openCamera() {
       document.getElementById('attStatus'),
       onFaceMatched
     );
+    loader.classList.add('d-none');
     openModal(cameraModal);
   } catch(e) {
+    loader.classList.add('d-none');
     showToast('Camera error: ' + e.message, 'danger');
   }
 }
 
 async function onFaceMatched(emp) {
-  if (sessionScanned.has(emp.EmployeeCode)) {
-    document.getElementById('attStatus').textContent =
-      `${emp.FullName} — already scanned this session`;
-    return;
-  }
-  sessionScanned.add(emp.EmployeeCode);
+  if (_pendingScanEmp) return;
 
   const projectId = _getCamProject() || null;
   if (!projectId) {
     document.getElementById('attStatus').textContent = 'Select a project first';
-    sessionScanned.delete(emp.EmployeeCode);
     return;
   }
-  const pid = String(projectId || '');
+
+  const pid = String(projectId);
   const empProj = projectScans[emp.EmployeeCode] || {};
   const projCount = empProj[pid] || 0;
+  const type = projCount % 2 === 0 ? 'In' : 'Out';
+  const label = type === 'In' ? 'Sign In' : 'Sign Out';
 
-  const type   = projCount % 2 === 0 ? 'In' : 'Out';
+  _pendingScanEmp = { emp, projectId, pid, type };
+  AttendanceModule.pause && AttendanceModule.pause();
+
+  const overlay = document.getElementById('scanConfirmOverlay');
+  const avatar = emp.Picture
+    ? `<img src="${emp.Picture}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,.15);" onerror="this.style.display='none'">`
+    : `<div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#F15A24,#F15A24);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:700;border:3px solid rgba(255,255,255,.15);">${getInitials(emp.FullName)}</div>`;
+  document.getElementById('scanConfirmAvatar').innerHTML = avatar;
+  document.getElementById('scanConfirmLabel').textContent = label;
+  document.getElementById('scanConfirmName').textContent = emp.FullName;
+
+  const btn = document.getElementById('scanAcceptBtn');
+  btn.className = `cam-btn-accept ${type === 'In' ? 'sign-in' : 'sign-out'}`;
+  btn.innerHTML = `<i class="fa-solid ${type === 'In' ? 'fa-right-to-bracket' : 'fa-right-from-bracket'} me-1"></i>${label}`;
+  btn.onclick = confirmScanAttendance;
+
+  overlay.classList.remove('d-none');
+  overlay.style.display = 'flex';
+}
+
+function cancelScanConfirm() {
+  _pendingScanEmp = null;
+  const overlay = document.getElementById('scanConfirmOverlay');
+  overlay.classList.add('d-none');
+  overlay.style.display = '';
+  AttendanceModule.resume && AttendanceModule.resume();
+}
+
+async function confirmScanAttendance() {
+  if (!_pendingScanEmp) return;
+  const { emp, projectId, pid, type } = _pendingScanEmp;
   const action = type === 'In' ? 'Signed In' : 'Signed Out';
   const n = new Date();
 
-  // If signing in, auto sign-out from any other project with an open session
+  document.getElementById('scanAcceptBtn').disabled = true;
+
   if (type === 'In') {
+    const empProj = projectScans[emp.EmployeeCode] || {};
     let autoOffset = 0;
     for (const [otherPid, cnt] of Object.entries(empProj)) {
       if (otherPid !== pid && cnt % 2 === 1) {
@@ -724,14 +865,20 @@ async function onFaceMatched(emp) {
   if (!projectScans[emp.EmployeeCode]) projectScans[emp.EmployeeCode] = {};
   projectScans[emp.EmployeeCode][pid] = (projectScans[emp.EmployeeCode][pid] || 0) + 1;
 
-  document.getElementById('attStatus').textContent = `✓ ${emp.FullName} — ${action}`;
-  document.getElementById('sessionCount').textContent = `${sessionScanned.size} scanned`;
+  _scanCount++;
+  document.getElementById('sessionCount').textContent = `${_scanCount} scanned`;
   showToast(`${emp.FullName} — ${action}`, type === 'In' ? 'success' : 'warning');
 
   renderGrid();
   updateSummaryBadge();
-
   if (navigator.onLine) syncNow();
+
+  _pendingScanEmp = null;
+  document.getElementById('scanAcceptBtn').disabled = false;
+  const overlay = document.getElementById('scanConfirmOverlay');
+  overlay.classList.add('d-none');
+  overlay.style.display = '';
+  AttendanceModule.resume && AttendanceModule.resume();
 }
 
 function closeCamera() {
@@ -854,13 +1001,13 @@ function showLocationMap(lat, lon, projectId) {
     });
 
     attMapInstance.on('load', () => {
-      attMapMarker = new maplibregl.Marker({ color: '#1a3c5e' })
+      attMapMarker = new maplibregl.Marker({ color: '#22303F' })
         .setLngLat([lon, lat])
         .setPopup(new maplibregl.Popup({ offset: 25 }).setText('Scan Location'))
         .addTo(attMapInstance);
 
       if (projLat != null && projLon != null) {
-        new maplibregl.Marker({ color: '#FAA83A' })
+        new maplibregl.Marker({ color: '#F15A24' })
           .setLngLat([projLon, projLat])
           .setPopup(new maplibregl.Popup({ offset: 25 }).setText(proj.Title || 'Project Location'))
           .addTo(attMapInstance);

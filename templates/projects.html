@@ -7,10 +7,10 @@
 <style>
   #mapPickerContainer { height: 450px; width: 100%; border-radius: 8px; }
   .map-search-wrap { position: absolute; top: 10px; left: 50px; right: 50px; z-index: 1000; }
-  .map-search-wrap input { width: 100%; padding: 8px 12px; border: 2px solid #1a3c5e; border-radius: 8px;
+  .map-search-wrap input { width: 100%; padding: 8px 12px; border: 2px solid #22303F; border-radius: 8px;
     font-size: .9rem; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
   .map-coords-label { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
-    z-index: 1000; background: rgba(26,60,94,.9); color: #fff; padding: 4px 14px;
+    z-index: 1000; background: rgba(34,48,63,.9); color: #fff; padding: 4px 14px;
     border-radius: 6px; font-size: .82rem; pointer-events: none; }
 </style>
 {% endblock %}
@@ -153,6 +153,7 @@ async function loadProjects() {
   // IDB → UI (instant)
   try { projects = await ArchDB.getProjects(); } catch(_) { projects = []; }
   renderProjects(projects);
+  setTimeout(() => document.getElementById('mainContent').classList.add('no-anim'), 800);
 
   // API → IDB → UI
   try {
@@ -362,7 +363,7 @@ function placeMarker(lngLat) {
   if (mapMarker) {
     mapMarker.setLngLat(lngLat);
   } else {
-    mapMarker = new maplibregl.Marker({ draggable: true, color: '#1a3c5e' })
+    mapMarker = new maplibregl.Marker({ draggable: true, color: '#22303F' })
       .setLngLat(lngLat)
       .addTo(mapInstance);
     mapMarker.on('dragend', onMarkerDrag);

@@ -63,7 +63,7 @@ Attendance/
 │   ├── sw.js                 # Service worker: precache, navigation/API/static strategies
 │   ├── manifest.json         # PWA manifest (standalone, app shortcuts)
 │   ├── models/               # face-api.js model weights (tinyFaceDetector, landmark68, recognition)
-│   ├── icons/                # archlogo72.png, archlogo144.png, logo.png
+│   ├── icons/                # icon-72 through icon-512 (PWA icons)
 │   └── uploads/              # Employee photos (auto-created)
 ```
 

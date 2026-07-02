@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arch-v80';
+const CACHE_NAME = 'arch-v103';
 
 const PRECACHE = [
   '/static/css/style.css',
@@ -6,8 +6,13 @@ const PRECACHE = [
   '/static/js/db.js',
   '/static/js/sync.js',
   '/static/js/attendance.js',
-  '/static/icons/archlogo72.png',
-  '/static/icons/archlogo144.png',
+  '/static/icons/icon-72.png',
+  '/static/icons/icon-96.png',
+  '/static/icons/icon-128.png',
+  '/static/icons/icon-144.png',
+  '/static/icons/icon-152.png',
+  '/static/icons/icon-192.png',
+  '/static/icons/icon-512.png',
   '/static/manifest.json',
   '/static/models/tiny_face_detector_model-weights_manifest.json',
   '/static/models/tiny_face_detector_model-shard1',
@@ -24,8 +29,8 @@ const OFFLINE_HTML = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>body{font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;
 min-height:100vh;margin:0;background:#f5f3ef;color:#1c1c1e;}
 .box{text-align:center;padding:40px;max-width:320px;}
-h2{color:#FAA83A;margin-bottom:8px;}p{color:#636366;font-size:.9rem;}
-button{margin-top:20px;padding:10px 24px;background:#FAA83A;color:#fff;
+h2{color:#F15A24;margin-bottom:8px;}p{color:#636366;font-size:.9rem;}
+button{margin-top:20px;padding:10px 24px;background:#F15A24;color:#fff;
 border:none;border-radius:8px;cursor:pointer;font-size:1rem;}
 </style></head><body><div class="box">
 <h2>You're Offline</h2>

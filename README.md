@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="static/icons/archlogo144.png" alt="Arch Logo" width="80">
+  <img src="static/icons/icon-144.png" alt="Arch Logo" width="80">
 </p>
 
 <h1 align="center">Arch Attendance</h1>

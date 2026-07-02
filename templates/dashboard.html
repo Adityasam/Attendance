@@ -101,21 +101,26 @@ const now = new Date();
 document.getElementById('monthLabel').textContent = now.toLocaleString('default', {month:'long', year:'numeric'});
 
 let donutChart, barChart;
+let _chartsAnimated = false;
+let _empAnimated = false;
 
 async function loadDashboard() {
   // IDB → UI (instant)
   try {
     const cached = await ArchDB.getDashboardSummary();
     renderSummary(cached);
+    _chartsAnimated = true;
   } catch(_) {}
 
   // API → UI (server has complete data from all devices)
+  await new Promise(r => setTimeout(r, 1000));
   try {
     const res = await fetch('/api/attendance/summary');
     if (!res.ok) throw 0;
     const summary = await res.json();
     if (summary.error) throw 0;
     renderSummary(summary);
+    _chartsAnimated = true;
   } catch(_) {}
 }
 
@@ -134,13 +139,15 @@ function renderSummary(s) {
       datasets: [{
         data: [s.present || 0, s.absent || 0],
         backgroundColor: ['#28a745', '#dc3545'],
-        borderWidth: 0
+        borderWidth: 0,
+        spacing: 4,
+        borderRadius: 6
       }]
     },
     options: {
       cutout: '72%',
       plugins: { legend: { display: false } },
-      animation: { animateScale: true }
+      animation: _chartsAnimated ? false : { animateScale: true }
     }
   });
   const pct = s.total ? Math.round((s.present / s.total) * 100) : 0;
@@ -158,7 +165,7 @@ function renderSummary(s) {
       datasets: [{
         label: 'Attendance',
         data: values,
-        backgroundColor: '#FAA83A',
+        backgroundColor: '#F15A24',
         borderRadius: 4,
         borderSkipped: false
       }]
@@ -166,6 +173,7 @@ function renderSummary(s) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      animation: _chartsAnimated ? false : undefined,
       plugins: { legend: { display: false } },
       scales: {
         y: { beginAtZero: true, ticks: { precision: 0, color: '#636366' }, grid: { color: 'rgba(0,0,0,.06)' } },
@@ -179,7 +187,7 @@ async function loadEmployees() {
   // IDB → UI (instant)
   let employees = [];
   try { employees = await ArchDB.getEmployees(); } catch(_) {}
-  if (employees.length) renderEmployees(employees);
+  if (employees.length) { renderEmployees(employees); _empAnimated = true; }
 
   try {
     const ps = await ArchDB.getProjects();
@@ -196,6 +204,7 @@ async function loadEmployees() {
     await ArchDB.cacheEmployees(data);
     employees = await ArchDB.getEmployees();
     renderEmployees(employees);
+    _empAnimated = true;
   } catch(_) {
     if (!employees.length) {
       document.getElementById('employeeScroll').innerHTML =
@@ -230,7 +239,7 @@ function renderEmployees(list) {
       ? '<span class="badge bg-success-subtle text-success">Active</span>'
       : '<span class="badge bg-secondary-subtle text-secondary">Inactive</span>';
     container.innerHTML += `
-      <div class="emp-row" data-name="${emp.FullName.toLowerCase()}" style="animation-delay:${idx * 40}ms">
+      <div class="emp-row" data-name="${emp.FullName.toLowerCase()}" style="${_empAnimated ? '' : `animation-delay:${idx * 40}ms`}">
         ${avatar}
         <div class="emp-info">
           <div class="emp-name">${emp.FullName}</div>
@@ -254,5 +263,6 @@ function getInitials(name) {
 
 loadDashboard();
 loadEmployees();
+setTimeout(() => document.getElementById('mainContent').classList.add('no-anim'), 800);
 </script>
 {% endblock %}

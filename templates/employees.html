@@ -107,10 +107,8 @@
           <div class="col-md-6">
             <label class="form-label">Employee Type</label>
             <select class="form-select" id="fEmpType">
-              <option value="Staff">Staff</option>
-              <option value="Worker">Worker</option>
-              <option value="Manager">Manager</option>
-              <option value="Contractor">Contractor</option>
+              <option value="I">Internal</option>
+              <option value="O">Outsourced</option>
             </select>
           </div>
           <div class="col-md-6">
@@ -274,6 +272,7 @@ async function loadEmployees() {
   // IDB → UI (instant)
   try { employees = await ArchDB.getEmployees(); } catch(_) { employees = []; }
   renderTable(employees);
+  setTimeout(() => document.getElementById('mainContent').classList.add('no-anim'), 800);
 
   // API → IDB → UI
   try {
@@ -368,7 +367,7 @@ function openAddModal() {
   document.getElementById('empModalTitle').textContent = 'Add Employee';
   document.getElementById('empId').value = '';
   ['fEmpCode','fFullName','fDesignation','fMobile','fEmail','fFaceData'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('fEmpType').value = 'Staff';
+  document.getElementById('fEmpType').value = 'I';
   document.getElementById('fActive').value = '1';
   document.getElementById('picPreview').innerHTML = '<i class="fa-solid fa-camera fa-2x text-muted"></i><div class="small text-muted mt-1">Click to upload photo</div>';
   currentPicBase64 = null;
@@ -388,7 +387,7 @@ function editEmployee(id) {
   document.getElementById('fDesignation').value = emp.Designation || '';
   document.getElementById('fMobile').value = emp.Mobile || '';
   document.getElementById('fEmail').value = emp.Email || '';
-  document.getElementById('fEmpType').value = emp.EmployeeType || 'Staff';
+  document.getElementById('fEmpType').value = emp.EmployeeType || 'I';
   document.getElementById('fActive').value = emp.Active ? '1' : '0';
   document.getElementById('fFaceData').value = emp.FaceData || '';
 
@@ -419,7 +418,7 @@ function viewEmployee(id) {
       <tr><th>Code</th><td>${emp.EmployeeCode}</td></tr>
       <tr><th>Name</th><td>${emp.FullName}</td></tr>
       <tr><th>Designation</th><td>${emp.Designation || '—'}</td></tr>
-      <tr><th>Type</th><td>${emp.EmployeeType || '—'}</td></tr>
+      <tr><th>Type</th><td>${emp.EmployeeType === 'I' ? 'Internal' : emp.EmployeeType === 'O' ? 'Outsourced' : emp.EmployeeType || '—'}</td></tr>
       <tr><th>Mobile</th><td>${emp.Mobile || '—'}</td></tr>
       <tr><th>Email</th><td>${emp.Email || '—'}</td></tr>
       <tr><th>Status</th><td>${emp.Active ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>'}</td></tr>
@@ -773,13 +772,13 @@ function showScanMap(lat, lon, projLat, projLon, projName) {
     });
 
     scanMapInst.on('load', () => {
-      new maplibregl.Marker({ color: '#1a3c5e' })
+      new maplibregl.Marker({ color: '#22303F' })
         .setLngLat([lon, lat])
         .setPopup(new maplibregl.Popup({ offset: 25 }).setText('Scan Location'))
         .addTo(scanMapInst);
 
       if (projLat != null && projLon != null) {
-        new maplibregl.Marker({ color: '#FAA83A' })
+        new maplibregl.Marker({ color: '#F15A24' })
           .setLngLat([projLon, projLat])
           .setPopup(new maplibregl.Popup({ offset: 25 }).setText(projName || 'Project Location'))
           .addTo(scanMapInst);

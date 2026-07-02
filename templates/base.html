@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#1a3c5e">
+  <meta name="theme-color" content="#22303F">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Arch">
   <link rel="manifest" href="/static/manifest.json">
-  <link rel="apple-touch-icon" href="/static/icons/archlogo144.png">
-  <link rel="icon" type="image/png" sizes="72x72" href="/static/icons/archlogo72.png">
-  <link rel="icon" type="image/png" sizes="144x144" href="/static/icons/archlogo144.png">
+  <link rel="apple-touch-icon" href="/static/icons/icon-144.png">
+  <link rel="icon" type="image/png" sizes="72x72" href="/static/icons/icon-72.png">
+  <link rel="icon" type="image/png" sizes="144x144" href="/static/icons/icon-144.png">
   <title>{% block title %}Arch{% endblock %} — Arch Attendance</title>
 
   <!-- Google Fonts: Inter -->
@@ -37,7 +37,7 @@
 <!-- Sidebar -->
 <div class="sidebar" id="sidebar">
   <div class="sidebar-brand">
-    <img src="/static/icons/archlogo72.png" alt="Arch" class="brand-logo">
+    <img src="/static/icons/icon-72.png" alt="Arch" class="brand-logo">
     <span class="brand-name">Arch</span>
   </div>
   <nav class="sidebar-nav">
@@ -107,6 +107,14 @@
   </div>
 </div>
 
+<!-- Page Loader -->
+<div id="pageLoader" class="page-loader d-none">
+  <div class="page-loader-card">
+    <div class="page-loader-ring"></div>
+    <div class="page-loader-text">Loading</div>
+  </div>
+</div>
+
 <!-- Toast Container -->
 <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer"></div>
 
@@ -129,6 +137,14 @@
   document.getElementById('sidebarOverlay')?.addEventListener('click', () => {
     document.getElementById('sidebar').classList.remove('open');
     document.getElementById('sidebarOverlay').classList.remove('show');
+  });
+
+  // Page navigation loader
+  document.querySelectorAll('.sidebar-nav .nav-item').forEach(link => {
+    link.addEventListener('click', function(e) {
+      if (this.classList.contains('active')) return;
+      document.getElementById('pageLoader').classList.remove('d-none');
+    });
   });
 
   // Offline indicator

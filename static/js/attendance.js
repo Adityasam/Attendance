@@ -9,6 +9,7 @@ const AttendanceModule = (() => {
   const SCAN_INTERVAL_MS = 1200;  // ms between recognition attempts
   const COOLDOWN_MS = 4000;       // ms before same face can be matched again
   let _facingMode = 'user';
+  let _paused = false;
   const MODEL_FILES = [
     'tiny_face_detector_model-weights_manifest.json',
     'tiny_face_detector_model-shard1',
@@ -120,6 +121,7 @@ const AttendanceModule = (() => {
 
   async function _loop() {
     if (!_running) return;
+    if (_paused) { setTimeout(_loop, SCAN_INTERVAL_MS); return; }
 
     try {
       const detections = await faceapi
@@ -201,5 +203,8 @@ const AttendanceModule = (() => {
     _videoEl.style.transform = _facingMode === 'user' ? 'scaleX(-1)' : 'none';
   }
 
-  return { loadModels, startCamera, stopCamera, switchCamera, getFaceDescriptor };
+  function pause()  { _paused = true; }
+  function resume() { _paused = false; }
+
+  return { loadModels, startCamera, stopCamera, switchCamera, pause, resume, getFaceDescriptor };
 })();

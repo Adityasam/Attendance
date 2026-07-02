@@ -146,6 +146,7 @@ async function loadAll() {
   pages = await pRes.json();
   renderUsers();
   renderAccessUserList();
+  setTimeout(() => document.getElementById('mainContent').classList.add('no-anim'), 800);
 }
 
 function renderUsers() {
