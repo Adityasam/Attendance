@@ -105,26 +105,30 @@ def get_app_settings():
 @login_required
 def update_app_settings():
     data = request.get_json()
-    existing = query('SELECT id FROM main_appsettings LIMIT 1', one=True)
+    existing = query('SELECT * FROM main_appsettings LIMIT 1', one=True)
     if existing:
+        merged = dict(existing)
+        merged.update({k: int(v) for k, v in data.items()})
         execute(
             '''UPDATE main_appsettings SET
-               haveProjects=?, manualAttendance=?, exportAttendance=?, offlineAttendance=?''',
+               haveProjects=?, manualAttendance=?, exportAttendance=?, offlineAttendance=?, locationMandatory=?''',
             (
-                int(data.get('haveProjects', 1)),
-                int(data.get('manualAttendance', 0)),
-                int(data.get('exportAttendance', 1)),
-                int(data.get('offlineAttendance', 1))
+                merged.get('haveProjects', 1),
+                merged.get('manualAttendance', 0),
+                merged.get('exportAttendance', 1),
+                merged.get('offlineAttendance', 1),
+                merged.get('locationMandatory', 0)
             )
         )
     else:
         execute(
-            'INSERT INTO main_appsettings (haveProjects, manualAttendance, exportAttendance, offlineAttendance) VALUES (?,?,?,?)',
+            'INSERT INTO main_appsettings (haveProjects, manualAttendance, exportAttendance, offlineAttendance, locationMandatory) VALUES (?,?,?,?,?)',
             (
                 int(data.get('haveProjects', 1)),
                 int(data.get('manualAttendance', 0)),
                 int(data.get('exportAttendance', 1)),
-                int(data.get('offlineAttendance', 1))
+                int(data.get('offlineAttendance', 1)),
+                int(data.get('locationMandatory', 0))
             )
         )
     return jsonify({'success': True})

@@ -109,6 +109,7 @@ const SyncModule = (() => {
 
   // Sequential: sync all pending data, then refresh cache, then notify pages
   async function fullSync() {
+    console.log('[Sync] Starting full sync...');
     await syncPending();
     await syncPendingOps();
     await refreshCache();
@@ -118,7 +119,9 @@ const SyncModule = (() => {
   window.addEventListener('online', () => fullSync());
 
   document.addEventListener('DOMContentLoaded', () => {
-    if (navigator.onLine) fullSync();
+    if (navigator.onLine){
+      setTimeout(() => fullSync(), 1000); // delay to allow service worker to initialize
+    }
   });
 
   return { syncPending, syncPendingOps, refreshCache, fullSync };

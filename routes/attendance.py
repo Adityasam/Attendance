@@ -79,7 +79,7 @@ def summary():
     })
 
 
-@attendance_bp.route('/employee-history/<emp_code>', methods=['GET'])
+@attendance_bp.route('/employee-history/<path:emp_code>', methods=['GET'])
 @login_required
 def employee_history(emp_code):
     month = request.args.get('month', date.today().month)
@@ -128,7 +128,7 @@ def employee_history(emp_code):
     })
 
 
-@attendance_bp.route('/employee-day-detail/<emp_code>', methods=['GET'])
+@attendance_bp.route('/employee-day-detail/<path:emp_code>', methods=['GET'])
 @login_required
 def employee_day_detail(emp_code):
     day = request.args.get('date')

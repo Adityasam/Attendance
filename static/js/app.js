@@ -72,6 +72,27 @@ function askPermission(type) {
   });
 }
 
+function confirmDelete(name) {
+  return new Promise(resolve => {
+    const modalEl = document.getElementById('confirmDeleteModal');
+    document.getElementById('confirmDeleteMsg').textContent = `"${name}" will be permanently deleted.`;
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    const btn = document.getElementById('confirmDeleteBtn');
+
+    function cleanup() {
+      btn.removeEventListener('click', onConfirm);
+      modalEl.removeEventListener('hidden.bs.modal', onHidden);
+    }
+    let answered = false;
+    function onConfirm() { answered = true; modal.hide(); cleanup(); resolve(true); }
+    function onHidden() { if (!answered) { cleanup(); resolve(false); } }
+
+    btn.addEventListener('click', onConfirm);
+    modalEl.addEventListener('hidden.bs.modal', onHidden, { once: true });
+    modal.show();
+  });
+}
+
 function showToast(message, type = 'info', duration = 3500) {
   const container = document.getElementById('toastContainer');
   if (!container) return;
@@ -103,7 +124,7 @@ function getInitials(name) {
   return (name || '').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 }
 
-function imgFallback(img, text) {
+function imgFallback(img) {
   const div = document.createElement('div');
   const cls = img.className || '';
   if (cls.includes('att-card-avatar')) {
@@ -113,7 +134,7 @@ function imgFallback(img, text) {
   } else {
     div.className = 'emp-avatar emp-avatar--initials';
   }
-  div.textContent = text;
+  div.innerHTML = '<i class="fa-solid fa-user"></i>';
   img.replaceWith(div);
 }
 

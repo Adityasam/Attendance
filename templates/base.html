@@ -41,19 +41,27 @@
     <span class="brand-name">Arch</span>
   </div>
   <nav class="sidebar-nav">
+    {% if is_admin or 'PG-00001' in allowed_pages %}
     <a href="/" class="nav-item {% if request.path == '/' %}active{% endif %}">
       <i class="fa-solid fa-gauge-high"></i><span>Dashboard</span>
     </a>
+    {% endif %}
+    {% if is_admin or 'PG-00003' in allowed_pages %}
     <a href="/employees" class="nav-item {% if request.path == '/employees' %}active{% endif %}">
       <i class="fa-solid fa-users"></i><span>Employees</span>
     </a>
+    {% endif %}
+    {% if is_admin or 'PG-00004' in allowed_pages %}
     <a href="/projects" class="nav-item {% if request.path == '/projects' %}active{% endif %}">
       <i class="fa-solid fa-diagram-project"></i><span>Projects</span>
     </a>
+    {% endif %}
+    {% if is_admin or 'PG-00002' in allowed_pages %}
     <a href="/attendance" class="nav-item {% if request.path == '/attendance' %}active{% endif %}">
       <i class="fa-solid fa-calendar-check"></i><span>Attendance</span>
     </a>
-    {% if is_admin %}
+    {% endif %}
+    {% if is_admin or 'PG-00005' in allowed_pages %}
     <a href="/settings" class="nav-item {% if request.path == '/settings' %}active{% endif %}">
       <i class="fa-solid fa-gear"></i><span>Settings</span>
     </a>
@@ -115,8 +123,27 @@
   </div>
 </div>
 
+<!-- Confirm Delete Dialog -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content text-center">
+      <div class="modal-body py-4">
+        <div class="confirm-delete-icon mb-3">
+          <i class="fa-solid fa-trash fa-2x"></i>
+        </div>
+        <h5 class="mb-2">Delete?</h5>
+        <p class="text-muted small mb-0" id="confirmDeleteMsg">This action cannot be undone.</p>
+      </div>
+      <div class="modal-footer justify-content-center border-0 pt-0">
+        <button class="btn btn-outline-secondary btn-sm px-4" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-danger btn-sm px-4" id="confirmDeleteBtn">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Toast Container -->
-<div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer"></div>
+<div class="toast-container position-fixed bottom-0 start-50 translate-middle-x p-3" id="toastContainer"></div>
 
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

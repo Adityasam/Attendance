@@ -78,6 +78,12 @@
   @keyframes camSpin { to { transform:rotate(360deg); } }
   .cam-loader-text { color:rgba(255,255,255,.7); font-size:.95rem; font-weight:500; }
   .cam-loader-sub { color:rgba(255,255,255,.35); font-size:.78rem; margin-top:6px; }
+
+  .gps-loader-bar {
+    padding: 10px 16px; margin-bottom: 12px; border-radius: var(--radius-sm);
+    background: #fff8f0; border: 1px solid rgba(241,90,36,.15);
+    color: var(--text-2); font-size: .85rem;
+  }
 </style>
 {% endblock %}
 
@@ -122,6 +128,14 @@
       </div>
       <span class="badge bg-primary-subtle text-muted small d-none d-md-inline" id="summaryBadge"></span>
     </div>
+  </div>
+</div>
+
+<!-- GPS Loading Bar -->
+<div class="gps-loader-bar d-none" id="gpsLoaderBar">
+  <div class="d-flex align-items-center gap-2">
+    <div class="spinner-border spinner-border-sm text-warning"></div>
+    <span>Acquiring GPS location…</span>
   </div>
 </div>
 
@@ -361,10 +375,13 @@ const exportModal     = new bootstrap.Modal(document.getElementById('exportModal
   document.getElementById('gpsStatus').style.display = _locationMandatory ? '' : 'none';
   document.querySelector('.fab-btn').style.display = _manualAttendance ? 'none' : '';
 
+  if (_locationMandatory) {
+    document.getElementById('gpsLoaderBar').classList.remove('d-none');
+    requestLocation();
+  }
   await Promise.all([loadProjects(), loadEmployees()]);
   await loadTodayRecords();
   _gridAnimated = true;
-  if (_locationMandatory) requestLocation();
   setTimeout(_syncFromServer, 1000);
 })();
 
@@ -471,8 +488,8 @@ function renderGrid() {
   grid.innerHTML = list.map((emp, idx) => {
     const st = getStatus(emp.EmployeeCode);
     const avatar = emp.Picture
-      ? `<img src="${emp.Picture}" class="att-card-avatar" alt="" onerror="imgFallback(this,'${initials(emp.FullName)}')">`
-      : `<div class="att-card-avatar att-card-avatar--initials">${initials(emp.FullName)}</div>`;
+      ? `<img src="${emp.Picture}" class="att-card-avatar" alt="" onerror="imgFallback(this)">`
+      : `<div class="att-card-avatar att-card-avatar--initials"><i class="fa-solid fa-user"></i></div>`;
     return `
     <div class="att-card" data-code="${emp.EmployeeCode}"
          onclick="showEmpHistory('${emp.EmployeeCode}')"
@@ -503,7 +520,7 @@ async function showEmpHistory(empCode) {
   const emp = allEmployees.find(e => e.EmployeeCode === empCode);
   if (!emp) return;
 
-  if (_locationMandatory) {
+  if (_manualAttendance && _locationMandatory) {
     const locState = await navigator.permissions.query({ name: 'geolocation' }).then(p => p.state).catch(() => 'denied');
     if (locState === 'denied') {
       showToast('Location permission is mandatory. Please enable it in browser settings.', 'danger', 5000);
@@ -517,11 +534,15 @@ async function showEmpHistory(empCode) {
       startGPS();
       return;
     }
+    if (currentLat == null || currentLon == null) {
+      showToast('Waiting for GPS location. Please try again in a moment.', 'warning', 4000);
+      return;
+    }
   }
 
   document.getElementById('histAvatarWrap').innerHTML = emp.Picture
-    ? `<img src="${emp.Picture}" class="emp-avatar" alt="" onerror="imgFallback(this,'${initials(emp.FullName)}')">`
-    : `<div class="emp-avatar emp-avatar--initials">${initials(emp.FullName)}</div>`;
+    ? `<img src="${emp.Picture}" class="emp-avatar" alt="" onerror="imgFallback(this)">`
+    : `<div class="emp-avatar emp-avatar--initials"><i class="fa-solid fa-user"></i></div>`;
   document.getElementById('histEmpName').textContent = emp.FullName;
   document.getElementById('histEmpMeta').textContent =
     [emp.EmployeeCode, emp.Designation].filter(Boolean).join(' · ');
@@ -729,6 +750,10 @@ async function openCamera() {
       }
       startGPS();
     }
+    if (currentLat == null || currentLon == null) {
+      showToast('Waiting for GPS location. Please try again in a moment.', 'warning', 4000);
+      return;
+    }
   }
 
   const camState = await navigator.permissions.query({ name: 'camera' }).then(p => p.state).catch(() => 'prompt');
@@ -926,9 +951,11 @@ function startGPS() {
   navigator.geolocation.watchPosition(pos => {
     currentLat = pos.coords.latitude;
     currentLon = pos.coords.longitude;
+    console.log('GPS:', currentLat, currentLon);
     document.getElementById('gpsLabel').textContent =
       `${currentLat.toFixed(4)}, ${currentLon.toFixed(4)}`;
     document.getElementById('gpsStatus').classList.add('gps-ok');
+    document.getElementById('gpsLoaderBar').classList.add('d-none');
   }, () => {
     if (_locationMandatory) {
       showToast('Location permission is mandatory. You cannot mark attendance without it.', 'danger', 6000);

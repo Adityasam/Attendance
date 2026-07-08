@@ -301,6 +301,14 @@ const ArchDB = (() => {
     return tx('appSettings', 'readonly', s => s.get('main'));
   }
 
+  async function cacheDashboardSummary(data) {
+    return tx('appSettings', 'readwrite', s => s.put({ key: 'dashboardSummary', ...data }));
+  }
+
+  async function getCachedDashboardSummary() {
+    return tx('appSettings', 'readonly', s => s.get('dashboardSummary'));
+  }
+
   return {
     cacheEmployees, getEmployees, getEmployeesWithFaceData, mergeFaceData,
     putEmployee, removeEmployee,
@@ -309,6 +317,7 @@ const ArchDB = (() => {
     savePendingOp, getPendingOps, deleteOp, removePendingOpsForTempId,
     getDashboardSummary,
     cacheFaceModel, getAllFaceModels,
-    cacheAppSettings, getAppSettings
+    cacheAppSettings, getAppSettings,
+    cacheDashboardSummary, getCachedDashboardSummary
   };
 })();

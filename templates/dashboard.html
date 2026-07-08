@@ -105,15 +105,30 @@ let _chartsAnimated = false;
 let _empAnimated = false;
 
 async function loadDashboard() {
-  // IDB → UI (instant)
+  const todayDay = String(now.getDate()).padStart(2, '0');
+
+  // IDB → UI (instant): cached summary + today from local attendance
   try {
-    const cached = await ArchDB.getDashboardSummary();
-    renderSummary(cached);
-    _chartsAnimated = true;
+    const [cached, live] = await Promise.all([
+      ArchDB.getCachedDashboardSummary(),
+      ArchDB.getDashboardSummary()
+    ]);
+    if (cached) {
+      const monthly = (cached.monthly || []).filter(d => d.day !== todayDay);
+      if (live.monthly) {
+        const todayEntry = live.monthly.find(d => d.day === todayDay);
+        if (todayEntry) monthly.push(todayEntry);
+      }
+      monthly.sort((a, b) => a.day.localeCompare(b.day));
+      renderSummary({ ...live, monthly });
+      _chartsAnimated = true;
+    } else {
+      renderSummary(live);
+      _chartsAnimated = true;
+    }
   } catch(_) {}
 
-  // API → UI (server has complete data from all devices)
-  await new Promise(r => setTimeout(r, 1000));
+  // Server → UI + cache
   try {
     const res = await fetch('/api/attendance/summary');
     if (!res.ok) throw 0;
@@ -121,6 +136,7 @@ async function loadDashboard() {
     if (summary.error) throw 0;
     renderSummary(summary);
     _chartsAnimated = true;
+    ArchDB.cacheDashboardSummary(summary);
   } catch(_) {}
 }
 
@@ -233,8 +249,8 @@ function renderEmployees(list) {
   }
   list.forEach((emp, idx) => {
     const avatar = emp.Picture
-      ? `<img src="${emp.Picture}" class="emp-avatar" alt="${emp.FullName}" onerror="imgFallback(this,'${getInitials(emp.FullName)}')">`
-      : `<div class="emp-avatar emp-avatar--initials">${getInitials(emp.FullName)}</div>`;
+      ? `<img src="${emp.Picture}" class="emp-avatar" alt="${emp.FullName}" onerror="imgFallback(this)">`
+      : `<div class="emp-avatar emp-avatar--initials"><i class="fa-solid fa-user"></i></div>`;
     const badge = emp.Active
       ? '<span class="badge bg-success-subtle text-success">Active</span>'
       : '<span class="badge bg-secondary-subtle text-secondary">Inactive</span>';

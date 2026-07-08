@@ -11,15 +11,7 @@ def list_projects():
     rows = query(
         'SELECT * FROM main_myproject WHERE Deleted=0 ORDER BY Title'
     )
-    result = []
-    for r in rows:
-        p = dict(r)
-        incharge = query(
-            'SELECT UserId FROM main_projectincharge WHERE ProjectId=?', (r['id'],)
-        )
-        p['incharge_list'] = [i['UserId'] for i in incharge]
-        result.append(p)
-    return jsonify(result)
+    return jsonify([dict(r) for r in rows])
 
 
 @projects_bp.route('/<int:proj_id>', methods=['GET'])
@@ -28,10 +20,7 @@ def get_project(proj_id):
     row = query('SELECT * FROM main_myproject WHERE id=? AND Deleted=0', (proj_id,), one=True)
     if not row:
         return jsonify({'error': 'Not found'}), 404
-    p = dict(row)
-    incharge = query('SELECT UserId FROM main_projectincharge WHERE ProjectId=?', (proj_id,))
-    p['incharge_list'] = [i['UserId'] for i in incharge]
-    return jsonify(p)
+    return jsonify(dict(row))
 
 
 @projects_bp.route('/', methods=['POST'])
@@ -54,9 +43,6 @@ def add_project():
     )
     row = query('SELECT * FROM main_myproject ORDER BY id DESC LIMIT 1', one=True)
     proj_id = row['id']
-
-    for uid in data.get('incharge_list', []):
-        execute('INSERT INTO main_projectincharge (ProjectId, UserId) VALUES (?,?)', (proj_id, uid))
 
     return jsonify(dict(row)), 201
 
@@ -86,11 +72,6 @@ def update_project(proj_id):
             proj_id
         )
     )
-
-    if 'incharge_list' in data:
-        execute('DELETE FROM main_projectincharge WHERE ProjectId=?', (proj_id,))
-        for uid in data['incharge_list']:
-            execute('INSERT INTO main_projectincharge (ProjectId, UserId) VALUES (?,?)', (proj_id, uid))
 
     row = query('SELECT * FROM main_myproject WHERE id=?', (proj_id,), one=True)
     return jsonify(dict(row))

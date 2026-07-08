@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arch-v103';
+const CACHE_NAME = 'arch-v116';
 
 const PRECACHE = [
   '/static/css/style.css',
@@ -78,24 +78,24 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Page navigation: network first, cached page fallback, then offline HTML
+  // Page navigation: stale-while-revalidate (cached → instant, fetch → update cache for next visit)
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request)
-        .then(res => {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then(c => c.put(request, clone));
-          return res;
-        })
-        .catch(() =>
-          caches.match(request)
-            .then(cached => cached ||
-              new Response(OFFLINE_HTML, {
-                status: 200,
-                headers: { 'Content-Type': 'text/html; charset=utf-8' },
-              })
-            )
-        )
+      caches.match(request).then(cached => {
+        const network = fetch(request)
+          .then(res => {
+            if (res && res.status === 200) {
+              const clone = res.clone();
+              caches.open(CACHE_NAME).then(c => c.put(request, clone));
+            }
+            return res;
+          })
+          .catch(() => cached || new Response(OFFLINE_HTML, {
+            status: 200,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          }));
+        return cached || network;
+      })
     );
     return;
   }

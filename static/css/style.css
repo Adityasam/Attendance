@@ -484,7 +484,7 @@ body {
 .form-check-input[type="radio"]:focus { box-shadow: 0 0 0 3px var(--brand-glow) !important; }
 
 /* Toggle switch */
-.form-switch .form-check-input { background-color: #d4d0c8 !important; }
+.form-switch .form-check-input { background-color: #d4d0c8 !important; width: 2.8em; height: 1.5em; }
 .form-switch .form-check-input:checked { background-color: var(--brand) !important; }
 
 /* ── Nav Tabs ─────────────────────────────────────────────────────────────── */
@@ -626,6 +626,15 @@ body {
   pointer-events: none;
 }
 .att-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; }
+
+/* ── Confirm Delete Dialog ────────────────────────────────────────────────── */
+.confirm-delete-icon {
+  width: 56px; height: 56px; margin: 0 auto;
+  border-radius: 50%;
+  background: #fef2f2;
+  display: flex; align-items: center; justify-content: center;
+  color: #dc2626;
+}
 
 /* ── Toasts ───────────────────────────────────────────────────────────────── */
 .toast {
@@ -780,7 +789,7 @@ body {
 .scan-label    { font-size: .78rem; font-weight: 600; margin-bottom: 3px; }
 .scan-label--in  { color: #16a34a; }
 .scan-label--out { color: var(--brand-dark); }
-.scan-project { font-size: .76rem; color: var(--brand-dark); display: inline-flex; align-items: center; gap: 4px; margin-bottom: 2px; font-weight: 500; }
+.scan-project { font-size: .76rem; color: var(--brand-dark); display: inline-flex; gap: 4px; font-weight: 500; }
 .scan-gps {
   font-size: .76rem; color: var(--brand-dark); text-decoration: none;
   display: inline-flex; align-items: center; gap: 3px;

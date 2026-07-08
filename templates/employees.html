@@ -263,18 +263,20 @@
 <script src="/static/js/attendance.js"></script>
 <script>
 let employees = [];
+let _listAnimated = false;
 let enrollStream = null;
 let currentPicBase64 = null;
 const empModal = new bootstrap.Modal(document.getElementById('empModal'));
 const viewModal = new bootstrap.Modal(document.getElementById('viewModal'));
 
 async function loadEmployees() {
-  // IDB → UI (instant)
+  // IDB → UI (instant, animated)
   try { employees = await ArchDB.getEmployees(); } catch(_) { employees = []; }
   renderTable(employees);
-  setTimeout(() => document.getElementById('mainContent').classList.add('no-anim'), 800);
+  _listAnimated = true;
 
-  // API → IDB → UI
+  // API → IDB → UI (no animation, flag already set)
+  await new Promise(r => setTimeout(r, 1200));
   try {
     const res = await fetch('/api/employees/');
     if (!res.ok) throw 0;
@@ -291,8 +293,8 @@ function renderTable(list) {
   const cards = document.getElementById('empCards');
   const safeName = e => e.FullName.replace(/'/g,'&#39;');
   const avatar = e => e.Picture
-    ? `<img src="${e.Picture}" class="emp-avatar-sm" alt="" onerror="imgFallback(this,'${getInitials(e.FullName)}')">`
-    : `<div class="emp-avatar-sm emp-avatar--initials-sm">${getInitials(e.FullName)}</div>`;
+    ? `<img src="${e.Picture}" class="emp-avatar-sm" alt="" onerror="imgFallback(this)">`
+    : `<div class="emp-avatar-sm emp-avatar--initials-sm"><i class="fa-solid fa-user"></i></div>`;
   const statusBadge = e => e.Active
     ? '<span class="badge bg-success-subtle text-success">Active</span>'
     : '<span class="badge bg-secondary-subtle text-secondary">Inactive</span>';
@@ -320,7 +322,7 @@ function renderTable(list) {
 
   // Desktop table
   tbody.innerHTML = list.map(e => `
-    <tr>
+    <tr${_listAnimated ? ' style="animation:none !important;"' : ''}>
       <td>
         <div class="d-flex align-items-center gap-2">
           ${avatar(e)}
@@ -336,7 +338,7 @@ function renderTable(list) {
 
   // Mobile cards
   cards.innerHTML = list.map(e => `
-    <div class="card mb-2 emp-card">
+    <div class="card mb-2 emp-card" style="${_listAnimated ? 'animation:none !important;' : ''}">
       <div class="card-body py-2 px-3 d-flex align-items-center gap-3">
         ${avatar(e)}
         <div style="flex:1;min-width:0;">
@@ -411,8 +413,8 @@ function viewEmployee(id) {
   document.getElementById('viewBody').innerHTML = `
     <div class="text-center mb-3">
       ${emp.Picture
-        ? `<img src="${emp.Picture}" style="width:100px;height:100px;object-fit:cover;border-radius:50%;" onerror="imgFallback(this,'${getInitials(emp.FullName)}')" class="emp-avatar">`
-        : `<div class="emp-avatar emp-avatar--initials" style="width:100px;height:100px;font-size:2rem;margin:auto;">${getInitials(emp.FullName)}</div>`}
+        ? `<img src="${emp.Picture}" style="width:100px;height:100px;object-fit:cover;border-radius:50%;" onerror="imgFallback(this)" class="emp-avatar">`
+        : `<div class="emp-avatar emp-avatar--initials" style="width:100px;height:100px;font-size:2rem;margin:auto;"><i class="fa-solid fa-user"></i></div>`}
     </div>
     <table class="table table-sm">
       <tr><th>Code</th><td>${emp.EmployeeCode}</td></tr>
@@ -603,7 +605,7 @@ async function saveEmployee() {
 
 async function deleteEmployee(id) {
   const emp = employees.find(e => e.id === id);
-  if (!confirm(`Delete ${emp?.FullName}?`)) return;
+  if (!await confirmDelete(emp?.FullName || 'Employee')) return;
 
   await ArchDB.removeEmployee(id);
   let opId;
@@ -649,7 +651,7 @@ async function loadHistory() {
   tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3"><div class="spinner-border spinner-border-sm"></div></td></tr>';
 
   try {
-    const res = await fetch(`/api/attendance/employee-history/${histEmpCode}?month=${m}&year=${y}`);
+    const res = await fetch(`/api/attendance/employee-history/${encodeURIComponent(histEmpCode)}?month=${m}&year=${y}`);
     if (!res.ok) throw 0;
     const data = await res.json();
 
@@ -690,7 +692,7 @@ async function showDayDetail(dateStr, dayNum) {
   openModal(scanDetailModal);
 
   try {
-    const res = await fetch(`/api/attendance/employee-day-detail/${histEmpCode}?date=${dateStr}`);
+    const res = await fetch(`/api/attendance/employee-day-detail/${encodeURIComponent(histEmpCode)}?date=${dateStr}`);
     if (!res.ok) throw 0;
     const data = await res.json();
     if (!data.scans || !data.scans.length) {
@@ -795,6 +797,17 @@ function showScanMap(lat, lon, projLat, projLon, projName) {
 }
 
 loadEmployees();
-window.addEventListener('offlineSynced', () => loadEmployees());
+window.addEventListener('offlineSynced', async () => {
+  try {
+    const res = await fetch('/api/employees/');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      await ArchDB.cacheEmployees(data);
+      employees = await ArchDB.getEmployees();
+      renderTable(employees);
+    }
+  } catch(_) {}
+});
 </script>
 {% endblock %}

@@ -87,10 +87,11 @@ def update_employee(emp_id):
 
     execute(
         '''UPDATE main_employee SET
-           FullName=?, Mobile=?, Email=?, Active=?, Designation=?,
+           EmployeeCode=?, FullName=?, Mobile=?, Email=?, Active=?, Designation=?,
            EmployeeType=?, Manager=?, Picture=?, FaceData=?
            WHERE id=?''',
         (
+            data.get('EmployeeCode', existing['EmployeeCode']),
             data.get('FullName', existing['FullName']),
             data.get('Mobile', existing['Mobile']),
             data.get('Email', existing['Email']),

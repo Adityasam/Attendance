@@ -147,15 +147,17 @@
 <script>
 let projects = [];
 let users = [];
+let _listAnimated = false;
 const projModal = new bootstrap.Modal(document.getElementById('projModal'));
 
 async function loadProjects() {
-  // IDB → UI (instant)
+  // IDB → UI (instant, animated)
   try { projects = await ArchDB.getProjects(); } catch(_) { projects = []; }
   renderProjects(projects);
-  setTimeout(() => document.getElementById('mainContent').classList.add('no-anim'), 800);
+  _listAnimated = true;
 
-  // API → IDB → UI
+  // API → IDB → UI (no animation, flag already set)
+  await new Promise(r => setTimeout(r, 1200));
   try {
     const [pRes, uRes] = await Promise.all([
       fetch('/api/projects/'), fetch('/api/settings/users')
@@ -186,8 +188,8 @@ function renderProjects(list) {
     const statusColor = p.Status === 'Active' ? 'success' : p.Status === 'Completed' ? 'primary' : 'warning';
     const hasCoords = p.Latitude && p.Longitude;
     return `
-    <div class="col-md-6 col-lg-4" style="animation: fadeUp .45s ease ${idx * 70}ms both">
-      <div class="card project-card h-100">
+    <div class="col-md-6 col-lg-4" style="${_listAnimated ? 'animation:none !important;' : `animation: fadeUp .45s ease ${idx * 70}ms both`}">
+      <div class="card project-card h-100" style="${_listAnimated ? 'animation:none !important;' : ''}">
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-start mb-2">
             <h6 class="card-title mb-0 fw-semibold">${p.Title}</h6>
@@ -314,7 +316,7 @@ async function saveProject() {
 
 async function deleteProject(id) {
   const p = projects.find(x => x.id === id);
-  if (!confirm(`Delete "${p?.Title}"?`)) return;
+  if (!await confirmDelete(p?.Title || 'Project')) return;
 
   await ArchDB.removeProject(id);
   let opId;
@@ -337,7 +339,21 @@ async function deleteProject(id) {
 }
 
 loadProjects();
-window.addEventListener('offlineSynced', () => loadProjects());
+window.addEventListener('offlineSynced', async () => {
+  try {
+    const [pRes, uRes] = await Promise.all([
+      fetch('/api/projects/'), fetch('/api/settings/users')
+    ]);
+    if (!pRes.ok) return;
+    const data = await pRes.json();
+    if (Array.isArray(data)) {
+      await ArchDB.cacheProjects(data);
+      projects = await ArchDB.getProjects();
+      if (uRes.ok) { users = await uRes.json(); populateUserSelect(); }
+      renderProjects(projects);
+    }
+  } catch(_) {}
+});
 
 /* ── Map Picker (MapLibre GL) ── */
 let mapInstance = null;

@@ -15,9 +15,16 @@
   </li>
   <li class="nav-item p-0">
     <a class="nav-link" data-bs-toggle="tab" href="#tabAccess">
-      <i class="fa-solid fa-shield-halved me-1"></i>Access Control
+      <i class="fa-solid fa-shield-halved me-1"></i>Access
     </a>
   </li>
+  {% if is_admin %}
+  <li class="nav-item p-0">
+    <a class="nav-link" data-bs-toggle="tab" href="#tabControls">
+      <i class="fa-solid fa-sliders me-1"></i>Controls
+    </a>
+  </li>
+  {% endif %}
 </ul>
 
 <div class="tab-content">
@@ -84,6 +91,34 @@
       </div>
     </div>
   </div>
+
+  {% if is_admin %}
+  <!-- ── CONTROLS TAB ── -->
+  <div class="tab-pane fade" id="tabControls">
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+          <div>
+            <div class="fw-semibold">Manual Attendance</div>
+            <small class="text-muted">Allow manual sign in / sign out without camera</small>
+          </div>
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="ctrlManualAttendance" onchange="saveControls()">
+          </div>
+        </div>
+        <div class="d-flex justify-content-between align-items-center py-3">
+          <div>
+            <div class="fw-semibold">Location Mandatory</div>
+            <small class="text-muted">Require GPS location when marking attendance</small>
+          </div>
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="ctrlLocationMandatory" onchange="saveControls()">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
 </div>
 
@@ -228,7 +263,7 @@ async function saveUser() {
 }
 
 async function deleteUser(userId) {
-  if (!confirm(`Delete user ${userId}?`)) return;
+  if (!await confirmDelete(userId)) return;
   const res = await fetch(`/api/settings/users/${userId}`, {method:'DELETE'});
   if (res.ok) { showToast('User deleted', 'success'); loadAll(); }
   else showToast((await res.json()).error, 'danger');
@@ -254,11 +289,13 @@ async function selectAccessUser(userId, name) {
   const granted = await res.json();
 
   document.getElementById('accessPageList').innerHTML = pages.map(p => `
-    <div class="form-check mb-3">
-      <input class="form-check-input" type="checkbox" id="pg_${p.PageCode}" value="${p.PageCode}"
-             ${granted.includes(p.PageCode) ? 'checked' : ''}>
-      <label class="form-check-label" for="pg_${p.PageCode}">
-        <i class="${p.PageIcon||'fa-solid fa-circle'} me-2 text-muted"></i>
+    <div class="d-flex align-items-center mb-3">
+      <div class="form-check form-switch mb-0 me-3">
+        <input class="form-check-input" type="checkbox" role="switch" id="pg_${p.PageCode}" value="${p.PageCode}"
+               ${granted.includes(p.PageCode) ? 'checked' : ''}>
+      </div>
+      <label for="pg_${p.PageCode}" style="cursor:pointer">
+        <i class="fa-solid ${p.PageIcon||'fa-circle'} me-2 text-muted"></i>
         <strong>${p.PageTitle}</strong>
         ${p.Description ? `<div class="text-muted small">${p.Description}</div>` : ''}
       </label>
@@ -283,6 +320,36 @@ async function saveAccess() {
 }
 
 
+{% if is_admin %}
+async function loadControls() {
+  try {
+    const res = await fetch('/api/settings/app');
+    if (!res.ok) return;
+    const s = await res.json();
+    document.getElementById('ctrlManualAttendance').checked = !!s.manualAttendance;
+    document.getElementById('ctrlLocationMandatory').checked = !!s.locationMandatory;
+    if (ArchDB.cacheAppSettings) ArchDB.cacheAppSettings(s);
+  } catch(_) {}
+}
+
+async function saveControls() {
+  const payload = {
+    manualAttendance: document.getElementById('ctrlManualAttendance').checked ? 1 : 0,
+    locationMandatory: document.getElementById('ctrlLocationMandatory').checked ? 1 : 0
+  };
+  try {
+    const res = await fetch('/api/settings/app', {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) showToast('Settings saved', 'success');
+    else showToast('Save failed', 'danger');
+  } catch(_) { showToast('Save failed', 'danger'); }
+}
+{% endif %}
+
 loadAll();
+{% if is_admin %}loadControls();{% endif %}
 </script>
 {% endblock %}
